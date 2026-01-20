@@ -1,9 +1,10 @@
-import { Bug, AlertTriangle, Briefcase, Activity, Loader2 } from "lucide-react";
+import { AlertTriangle, Briefcase, Activity, Loader2 } from "lucide-react";
 import { isDevelopment } from "@/config/env";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { safeLog } from "@/lib/safe-logger";
 import { format } from "date-fns";
+import { TestUsersPanel } from "@/components/admin/TestUsersPanel";
 
 /**
  * Admin / Debug Page
@@ -83,6 +84,13 @@ const Admin = () => {
       </div>
 
       {/* Production warning */}
+      {/* Test Users Panel - Dev only */}
+      {isDevMode && (
+        <div className="mb-6">
+          <TestUsersPanel />
+        </div>
+      )}
+
       {!isDevMode && (
         <div className="mb-6 p-4 rounded-lg border border-warning bg-warning/10">
           <div className="flex items-center gap-2 text-warning">
