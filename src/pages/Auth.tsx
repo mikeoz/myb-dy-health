@@ -71,7 +71,7 @@ const Auth = () => {
           title: "Welcome back",
           description: "You have successfully signed in.",
         });
-        navigate("/timeline");
+        navigate("/home");
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "An error occurred";

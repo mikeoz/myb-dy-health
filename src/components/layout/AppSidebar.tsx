@@ -5,7 +5,8 @@ import {
   Shield, 
   Settings, 
   Bug,
-  BookOpen
+  BookOpen,
+  Home
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -24,6 +25,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const mainNavItems = [
+  { title: "Home", url: "/home", icon: Home },
   { title: "Timeline", url: "/timeline", icon: Clock },
   { title: "Documents", url: "/documents", icon: FileText },
   { title: "Sources", url: "/sources", icon: Link2 },
