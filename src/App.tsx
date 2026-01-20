@@ -7,6 +7,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 
 // Pages
 import Index from "./pages/Index";
+import Home from "./pages/Home";
+import Journal from "./pages/Journal";
 import Timeline from "./pages/Timeline";
 import Documents from "./pages/Documents";
 import Sources from "./pages/Sources";
@@ -31,6 +33,8 @@ const App = () => (
           
           {/* Main app routes with layout */}
           <Route element={<AppLayout><Index /></AppLayout>} path="/" />
+          <Route path="/home" element={<AppLayout><Home /></AppLayout>} />
+          <Route path="/journal" element={<AppLayout><Journal /></AppLayout>} />
           <Route path="/timeline" element={<AppLayout><Timeline /></AppLayout>} />
           <Route path="/documents" element={<AppLayout><Documents /></AppLayout>} />
           <Route path="/sources" element={<AppLayout><Sources /></AppLayout>} />
