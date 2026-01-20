@@ -35,6 +35,10 @@ interface SafeLogFields {
   resourceType?: string;
   /** Safe error code (not error message with details) */
   errorCode?: string;
+  /** Action being performed (e.g., 'timeline_fetch', 'auth_signin') */
+  action?: string;
+  /** Error type category (not the actual error message) */
+  errorType?: string;
 }
 
 /**
@@ -160,6 +164,8 @@ export const asSafeFields = (obj: unknown): SafeLogFields => {
   if (typeof source.durationMs === 'number') safe.durationMs = source.durationMs;
   if (typeof source.resourceType === 'string') safe.resourceType = source.resourceType;
   if (typeof source.errorCode === 'string') safe.errorCode = source.errorCode;
+  if (typeof source.action === 'string') safe.action = source.action;
+  if (typeof source.errorType === 'string') safe.errorType = source.errorType;
 
   return safe;
 };
