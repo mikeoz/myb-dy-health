@@ -14,7 +14,267 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_events: {
+        Row: {
+          action: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      consent_agreements: {
+        Row: {
+          created_at: string
+          id: string
+          scope: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          scope: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          scope?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      consent_snapshots: {
+        Row: {
+          consent_agreement_id: string
+          created_at: string
+          id: string
+          permissions: Json
+        }
+        Insert: {
+          consent_agreement_id: string
+          created_at?: string
+          id?: string
+          permissions: Json
+        }
+        Update: {
+          consent_agreement_id?: string
+          created_at?: string
+          id?: string
+          permissions?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consent_snapshots_consent_agreement_id_fkey"
+            columns: ["consent_agreement_id"]
+            isOneToOne: false
+            referencedRelation: "consent_agreements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      data_sources: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          status: Database["public"]["Enums"]["data_source_status"]
+          type: Database["public"]["Enums"]["data_source_type"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          status?: Database["public"]["Enums"]["data_source_status"]
+          type: Database["public"]["Enums"]["data_source_type"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          status?: Database["public"]["Enums"]["data_source_status"]
+          type?: Database["public"]["Enums"]["data_source_type"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      document_artifacts: {
+        Row: {
+          content_type: string
+          created_at: string
+          id: string
+          provenance_id: string
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          content_type: string
+          created_at?: string
+          id?: string
+          provenance_id: string
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          content_type?: string
+          created_at?: string
+          id?: string
+          provenance_id?: string
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_artifacts_provenance_id_fkey"
+            columns: ["provenance_id"]
+            isOneToOne: false
+            referencedRelation: "provenance"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jobs: {
+        Row: {
+          created_at: string
+          id: string
+          idempotency_key: string
+          job_type: string
+          status: Database["public"]["Enums"]["job_status"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          job_type: string
+          status?: Database["public"]["Enums"]["job_status"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          job_type?: string
+          status?: Database["public"]["Enums"]["job_status"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      provenance: {
+        Row: {
+          captured_at: string
+          data_source_id: string
+          id: string
+          method: Database["public"]["Enums"]["provenance_method"]
+        }
+        Insert: {
+          captured_at?: string
+          data_source_id: string
+          id?: string
+          method: Database["public"]["Enums"]["provenance_method"]
+        }
+        Update: {
+          captured_at?: string
+          data_source_id?: string
+          id?: string
+          method?: Database["public"]["Enums"]["provenance_method"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provenance_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "data_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timeline_events: {
+        Row: {
+          consent_snapshot_id: string
+          created_at: string
+          event_time: string
+          event_type: string
+          id: string
+          provenance_id: string
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          consent_snapshot_id: string
+          created_at?: string
+          event_time: string
+          event_type: string
+          id?: string
+          provenance_id: string
+          summary: string
+          user_id: string
+        }
+        Update: {
+          consent_snapshot_id?: string
+          created_at?: string
+          event_time?: string
+          event_type?: string
+          id?: string
+          provenance_id?: string
+          summary?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timeline_events_consent_snapshot_id_fkey"
+            columns: ["consent_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "consent_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timeline_events_provenance_id_fkey"
+            columns: ["provenance_id"]
+            isOneToOne: false
+            referencedRelation: "provenance"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +283,10 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      data_source_status: "active" | "inactive" | "pending"
+      data_source_type: "manual" | "upload" | "portal"
+      job_status: "pending" | "running" | "complete" | "failed"
+      provenance_method: "manual_entry" | "upload" | "portal_import"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +413,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      data_source_status: ["active", "inactive", "pending"],
+      data_source_type: ["manual", "upload", "portal"],
+      job_status: ["pending", "running", "complete", "failed"],
+      provenance_method: ["manual_entry", "upload", "portal_import"],
+    },
   },
 } as const

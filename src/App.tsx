@@ -13,6 +13,7 @@ import Sources from "./pages/Sources";
 import Consent from "./pages/Consent";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
+import Auth from "./pages/Auth";
 import Guardrails from "./pages/docs/Guardrails";
 import NotFound from "./pages/NotFound";
 
@@ -24,20 +25,22 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AppLayout>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/timeline" element={<Timeline />} />
-            <Route path="/documents" element={<Documents />} />
-            <Route path="/sources" element={<Sources />} />
-            <Route path="/consent" element={<Consent />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/docs/guardrails" element={<Guardrails />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AppLayout>
+        <Routes>
+          {/* Auth route without layout */}
+          <Route path="/auth" element={<Auth />} />
+          
+          {/* Main app routes with layout */}
+          <Route element={<AppLayout><Index /></AppLayout>} path="/" />
+          <Route path="/timeline" element={<AppLayout><Timeline /></AppLayout>} />
+          <Route path="/documents" element={<AppLayout><Documents /></AppLayout>} />
+          <Route path="/sources" element={<AppLayout><Sources /></AppLayout>} />
+          <Route path="/consent" element={<AppLayout><Consent /></AppLayout>} />
+          <Route path="/settings" element={<AppLayout><Settings /></AppLayout>} />
+          <Route path="/admin" element={<AppLayout><Admin /></AppLayout>} />
+          <Route path="/docs/guardrails" element={<AppLayout><Guardrails /></AppLayout>} />
+          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
