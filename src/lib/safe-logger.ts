@@ -39,6 +39,10 @@ interface SafeLogFields {
   action?: string;
   /** Error type category (not the actual error message) */
   errorType?: string;
+  /** Job ID for async operations */
+  jobId?: string;
+  /** Sync action type (connect, sync, retry) */
+  syncAction?: string;
 }
 
 /**
@@ -166,6 +170,8 @@ export const asSafeFields = (obj: unknown): SafeLogFields => {
   if (typeof source.errorCode === 'string') safe.errorCode = source.errorCode;
   if (typeof source.action === 'string') safe.action = source.action;
   if (typeof source.errorType === 'string') safe.errorType = source.errorType;
+  if (typeof source.jobId === 'string') safe.jobId = source.jobId;
+  if (typeof source.syncAction === 'string') safe.syncAction = source.syncAction;
 
   return safe;
 };

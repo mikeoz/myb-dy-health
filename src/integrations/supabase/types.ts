@@ -93,25 +93,43 @@ export type Database = {
       }
       data_sources: {
         Row: {
+          connection_state: string
           created_at: string
           id: string
+          last_error_at: string | null
+          last_error_code: string | null
+          last_sync_at: string | null
+          last_sync_status: string | null
           name: string
+          provider: string | null
           status: Database["public"]["Enums"]["data_source_status"]
           type: Database["public"]["Enums"]["data_source_type"]
           user_id: string
         }
         Insert: {
+          connection_state?: string
           created_at?: string
           id?: string
+          last_error_at?: string | null
+          last_error_code?: string | null
+          last_sync_at?: string | null
+          last_sync_status?: string | null
           name: string
+          provider?: string | null
           status?: Database["public"]["Enums"]["data_source_status"]
           type: Database["public"]["Enums"]["data_source_type"]
           user_id: string
         }
         Update: {
+          connection_state?: string
           created_at?: string
           id?: string
+          last_error_at?: string | null
+          last_error_code?: string | null
+          last_sync_at?: string | null
+          last_sync_status?: string | null
           name?: string
+          provider?: string | null
           status?: Database["public"]["Enums"]["data_source_status"]
           type?: Database["public"]["Enums"]["data_source_type"]
           user_id?: string
@@ -174,6 +192,7 @@ export type Database = {
           id: string
           idempotency_key: string
           job_type: string
+          payload: Json | null
           status: Database["public"]["Enums"]["job_status"]
           user_id: string
         }
@@ -182,6 +201,7 @@ export type Database = {
           id?: string
           idempotency_key: string
           job_type: string
+          payload?: Json | null
           status?: Database["public"]["Enums"]["job_status"]
           user_id: string
         }
@@ -190,6 +210,7 @@ export type Database = {
           id?: string
           idempotency_key?: string
           job_type?: string
+          payload?: Json | null
           status?: Database["public"]["Enums"]["job_status"]
           user_id?: string
         }

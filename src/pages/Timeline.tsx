@@ -98,40 +98,64 @@ const Timeline = () => {
 
   const handleViewDocument = async (documentArtifactId: string) => {
     try {
-      // First get the document artifact to get the storage path
-      const { data: artifact, error: artifactError } = await supabase
-        .from("document_artifacts")
-        .select("storage_path")
-        .eq("id", documentArtifactId)
-        .maybeSingle();
-
-      if (artifactError || !artifact) {
-        throw new Error("Document not found");
+      // Get current session for auth header
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        toast({
+          variant: "destructive",
+          title: "Not authenticated",
+          description: "Please sign in to download documents.",
+        });
+        return;
       }
 
-      // Use 15 minute signed URL (extended from 5 min)
-      const { data, error } = await supabase.storage
-        .from("documents")
-        .createSignedUrl(artifact.storage_path, 60 * 15);
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const downloadUrl = `${supabaseUrl}/functions/v1/documents-download?artifact_id=${encodeURIComponent(documentArtifactId)}`;
+      
+      // Use fetch to download with auth header, then trigger browser download
+      const response = await fetch(downloadUrl, {
+        headers: {
+          Authorization: `Bearer ${session.session.access_token}`,
+        },
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.status}`);
+      }
 
-      // Create a temporary link element to trigger download
-      const link = document.createElement("a");
-      link.href = data.signedUrl;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Get filename from Content-Disposition header if available
+      const contentDisposition = response.headers.get("Content-Disposition");
+      let filename = "document";
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match) {
+          filename = match[1];
+        }
+      }
+
+      // Create blob and trigger download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      safeLog.info("Document downloaded", {
+        action: "timeline_document_download_success",
+        id: documentArtifactId,
+      });
     } catch (error) {
-      safeLog.error("Failed to view document from timeline", {
-        action: "timeline_document_view_error",
+      safeLog.error("Failed to download document from timeline", {
+        action: "timeline_document_download_error",
         errorType: error instanceof Error ? error.name : "unknown",
       });
       toast({
         variant: "destructive",
-        title: "Unable to view document",
+        title: "Unable to download document",
         description: "Please try again.",
       });
     }
