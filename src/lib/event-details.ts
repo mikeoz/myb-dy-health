@@ -77,3 +77,43 @@ export function getDocType(details: unknown): string | null {
 export function getNotes(details: unknown): string | null {
   return getString(details, "notes");
 }
+
+/**
+ * Get label from details (for visit summaries)
+ */
+export function getLabel(details: unknown): string | null {
+  return getString(details, "label");
+}
+
+/**
+ * Get referenced event IDs from visit summary details
+ */
+export function getReferencedEventIds(details: unknown): string[] {
+  if (
+    details !== null &&
+    typeof details === "object" &&
+    "referenced_event_ids" in details &&
+    Array.isArray((details as Record<string, unknown>).referenced_event_ids)
+  ) {
+    return (details as Record<string, unknown>).referenced_event_ids as string[];
+  }
+  return [];
+}
+
+/**
+ * Get date range from visit summary details
+ */
+export function getDateRange(details: unknown): { start: string; end: string } | null {
+  if (
+    details !== null &&
+    typeof details === "object"
+  ) {
+    const d = details as Record<string, unknown>;
+    const start = typeof d.date_range_start === "string" ? d.date_range_start : null;
+    const end = typeof d.date_range_end === "string" ? d.date_range_end : null;
+    if (start && end) {
+      return { start, end };
+    }
+  }
+  return null;
+}

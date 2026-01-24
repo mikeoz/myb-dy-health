@@ -14,6 +14,7 @@ import EventDetails from "./pages/EventDetails";
 import Documents from "./pages/Documents";
 import Sources from "./pages/Sources";
 import SourceDetails from "./pages/SourceDetails";
+import SharePreview from "./pages/SharePreview";
 import Consent from "./pages/Consent";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
@@ -42,6 +43,7 @@ const App = () => (
           <Route path="/documents" element={<AppLayout><Documents /></AppLayout>} />
           <Route path="/sources" element={<AppLayout><Sources /></AppLayout>} />
           <Route path="/sources/:id" element={<AppLayout><SourceDetails /></AppLayout>} />
+          <Route path="/share-preview" element={<AppLayout><SharePreview /></AppLayout>} />
           <Route path="/consent" element={<AppLayout><Consent /></AppLayout>} />
           <Route path="/settings" element={<AppLayout><Settings /></AppLayout>} />
           <Route path="/admin" element={<AppLayout><Admin /></AppLayout>} />

@@ -43,6 +43,10 @@ interface SafeLogFields {
   jobId?: string;
   /** Sync action type (connect, sync, retry) */
   syncAction?: string;
+  /** Audit action type */
+  auditAction?: string;
+  /** Entity type for audit events */
+  entityType?: string;
 }
 
 /**
@@ -172,6 +176,8 @@ export const asSafeFields = (obj: unknown): SafeLogFields => {
   if (typeof source.errorType === 'string') safe.errorType = source.errorType;
   if (typeof source.jobId === 'string') safe.jobId = source.jobId;
   if (typeof source.syncAction === 'string') safe.syncAction = source.syncAction;
+  if (typeof source.auditAction === 'string') safe.auditAction = source.auditAction;
+  if (typeof source.entityType === 'string') safe.entityType = source.entityType;
 
   return safe;
 };
