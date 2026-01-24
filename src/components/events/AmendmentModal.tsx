@@ -221,24 +221,26 @@ export function AmendmentModal({ isOpen, onClose, onSuccess, event, eventType }:
 
       const { data: newEvent, error: eventError } = await supabase
         .from("timeline_events")
-        .insert({
-          user_id: userId,
-          event_type: "event_amended",
-          event_time: new Date().toISOString(),
-          title: amendmentTitle,
-          summary: `Updated ${docTypeLabel || "document"} details`,
-          details: {
-            amends_event_id: event.id,
-            amended_event_type: "document_uploaded",
-            document_artifact_id: details?.document_artifact_id,
-            title: data.title,
-            doc_type: data.docType,
-            notes: data.notes || null,
-            document_date: data.documentDate,
+        .insert([
+          {
+            user_id: userId,
+            event_type: "event_amended",
+            event_time: new Date().toISOString(),
+            title: amendmentTitle,
+            summary: `Updated ${docTypeLabel || "document"} details`,
+            details: {
+              amends_event_id: event.id,
+              amended_event_type: "document_uploaded",
+              document_artifact_id: (details?.document_artifact_id as string) || null,
+              title: data.title,
+              doc_type: data.docType,
+              notes: data.notes || null,
+              document_date: data.documentDate,
+            },
+            provenance_id: provenance.id,
+            consent_snapshot_id: consentSnapshotId,
           },
-          provenance_id: provenance.id,
-          consent_snapshot_id: consentSnapshotId,
-        })
+        ])
         .select("id")
         .single();
 
