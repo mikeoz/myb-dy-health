@@ -4,6 +4,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { safeLog } from "@/lib/safe-logger";
+import {
+  requireUserId,
+  getOrCreateDataSource,
+  getOrCreateDefaultConsentSnapshot,
+} from "@/lib/write-helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -80,7 +85,7 @@ export function DocumentUploadForm({ onSuccess, onCancel }: DocumentUploadFormPr
     defaultValues: {
       title: "",
       docType: "",
-      documentDate: new Date().toISOString().slice(0, 10), // Format for date input
+      documentDate: new Date().toISOString().slice(0, 10),
       notes: "",
     },
   });
@@ -136,14 +141,12 @@ export function DocumentUploadForm({ onSuccess, onCancel }: DocumentUploadFormPr
     let storagePath: string | null = null;
 
     try {
-      // Get current user
-      const { data: session, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session.session) {
-        throw new Error("Not authenticated");
-      }
-      const userId = session.session.user.id;
+      // Use shared helpers for user ID, data source, and consent
+      const userId = await requireUserId();
+      const dataSourceId = await getOrCreateDataSource(userId, "upload", "User Upload");
+      const consentSnapshotId = await getOrCreateDefaultConsentSnapshot(userId);
 
-      // 1. Upload file to storage
+      // Upload file to storage
       const now = new Date();
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -165,35 +168,7 @@ export function DocumentUploadForm({ onSuccess, onCancel }: DocumentUploadFormPr
         resourceType: "document",
       });
 
-      // 2. Create or get data source for user uploads
-      const { data: existingSource } = await supabase
-        .from("data_sources")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("type", "upload")
-        .eq("name", "User Upload")
-        .maybeSingle();
-
-      let dataSourceId: string;
-      if (existingSource) {
-        dataSourceId = existingSource.id;
-      } else {
-        const { data: newSource, error: sourceError } = await supabase
-          .from("data_sources")
-          .insert({
-            user_id: userId,
-            type: "upload",
-            name: "User Upload",
-            status: "active",
-          })
-          .select("id")
-          .single();
-
-        if (sourceError) throw sourceError;
-        dataSourceId = newSource.id;
-      }
-
-      // 3. Create provenance record (no PHI in metadata)
+      // Create provenance record (no PHI in metadata)
       const { data: provenance, error: provError } = await supabase
         .from("provenance")
         .insert({
@@ -211,7 +186,7 @@ export function DocumentUploadForm({ onSuccess, onCancel }: DocumentUploadFormPr
 
       if (provError) throw provError;
 
-      // 4. Create document artifact
+      // Create document artifact
       const { data: artifact, error: artifactError } = await supabase
         .from("document_artifacts")
         .insert({
@@ -230,64 +205,7 @@ export function DocumentUploadForm({ onSuccess, onCancel }: DocumentUploadFormPr
 
       if (artifactError) throw artifactError;
 
-      // 5. Get or create consent snapshot
-      let consentSnapshotId: string;
-      const { data: existingAgreement } = await supabase
-        .from("consent_agreements")
-        .select("id")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (existingAgreement) {
-        const { data: existingSnapshot } = await supabase
-          .from("consent_snapshots")
-          .select("id")
-          .eq("consent_agreement_id", existingAgreement.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (existingSnapshot) {
-          consentSnapshotId = existingSnapshot.id;
-        } else {
-          const { data: newSnapshot, error: snapError } = await supabase
-            .from("consent_snapshots")
-            .insert({
-              consent_agreement_id: existingAgreement.id,
-              permissions: { store_health_data: true, create_timeline_events: true },
-            })
-            .select("id")
-            .single();
-
-          if (snapError) throw snapError;
-          consentSnapshotId = newSnapshot.id;
-        }
-      } else {
-        const { data: newAgreement, error: agreementError } = await supabase
-          .from("consent_agreements")
-          .insert({
-            user_id: userId,
-            scope: "health_data_storage",
-          })
-          .select("id")
-          .single();
-
-        if (agreementError) throw agreementError;
-
-        const { data: newSnapshot, error: snapError } = await supabase
-          .from("consent_snapshots")
-          .insert({
-            consent_agreement_id: newAgreement.id,
-            permissions: { store_health_data: true, create_timeline_events: true },
-          })
-          .select("id")
-          .single();
-
-        if (snapError) throw snapError;
-        consentSnapshotId = newSnapshot.id;
-      }
-
-      // 6. Create timeline event
+      // Create timeline event
       const docTypeLabel = DOC_TYPES.find((t) => t.value === data.docType)?.label || data.docType;
       
       const { data: timelineEvent, error: eventError } = await supabase
@@ -311,7 +229,7 @@ export function DocumentUploadForm({ onSuccess, onCancel }: DocumentUploadFormPr
 
       if (eventError) throw eventError;
 
-      // 7. Create audit event (IDs only)
+      // Create audit event (IDs only)
       await supabase.from("audit_events").insert({
         user_id: userId,
         action: "document_uploaded",
@@ -504,7 +422,7 @@ export function DocumentUploadForm({ onSuccess, onCancel }: DocumentUploadFormPr
           <Button
             type="submit"
             className="w-full h-12 text-base"
-            disabled={isSubmitting || !selectedFile}
+            disabled={isSubmitting}
           >
             {isSubmitting ? (
               <>

@@ -41,6 +41,10 @@ const devNavItems = [
   { title: "Guardrails", url: "/docs/guardrails", icon: BookOpen },
 ];
 
+// Check if we're in development mode
+const isDevMode = import.meta.env.VITE_APP_ENV === "development" || 
+                  import.meta.env.DEV;
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -121,40 +125,42 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Developer Tools - Restricted in production */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Developer</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {devNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive(item.url)}
-                    tooltip={item.title}
-                  >
-                    <NavLink
-                      to={item.url}
-                      end
-                      className="flex items-center gap-2"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+        {/* Developer Tools - Only shown in development mode */}
+        {isDevMode && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-muted-foreground/60">Developer</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {devNavItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(item.url)}
+                      tooltip={item.title}
                     >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                      <NavLink
+                        to={item.url}
+                        end
+                        className="flex items-center gap-2 text-muted-foreground"
+                        activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border">
         <div className="px-2 py-3">
           {!collapsed && (
             <p className="text-xs text-muted-foreground">
-              v0.1.0 — Development
+              v0.1.0 {isDevMode ? "— Development" : ""}
             </p>
           )}
         </div>

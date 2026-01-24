@@ -5,10 +5,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { safeLog } from "@/lib/safe-logger";
+import {
+  requireUserId,
+  getOrCreateDataSource,
+  getOrCreateDefaultConsentSnapshot,
+} from "@/lib/write-helpers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -68,7 +72,7 @@ export function JournalEntryForm() {
       title: "",
       entryText: "",
       category: "",
-      eventDateTime: new Date().toISOString().slice(0, 16), // Format for datetime-local
+      eventDateTime: new Date().toISOString().slice(0, 16),
     },
   });
 
@@ -77,42 +81,12 @@ export function JournalEntryForm() {
     safeLog.info("Journal entry submission started", { action: "journal_create_start" });
 
     try {
-      // Get current user
-      const { data: session, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session.session) {
-        throw new Error("Not authenticated");
-      }
-      const userId = session.session.user.id;
+      // Use shared helpers for user ID, data source, and consent
+      const userId = await requireUserId();
+      const dataSourceId = await getOrCreateDataSource(userId, "manual", "User Journal");
+      const consentSnapshotId = await getOrCreateDefaultConsentSnapshot(userId);
 
-      // 1. Create or get a data source for user journal
-      const { data: existingSource } = await supabase
-        .from("data_sources")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("type", "manual")
-        .eq("name", "User Journal")
-        .maybeSingle();
-
-      let dataSourceId: string;
-      if (existingSource) {
-        dataSourceId = existingSource.id;
-      } else {
-        const { data: newSource, error: sourceError } = await supabase
-          .from("data_sources")
-          .insert({
-            user_id: userId,
-            type: "manual",
-            name: "User Journal",
-            status: "active",
-          })
-          .select("id")
-          .single();
-
-        if (sourceError) throw sourceError;
-        dataSourceId = newSource.id;
-      }
-
-      // 2. Create provenance record
+      // Create provenance record
       const { data: provenance, error: provError } = await supabase
         .from("provenance")
         .insert({
@@ -129,68 +103,7 @@ export function JournalEntryForm() {
 
       if (provError) throw provError;
 
-      // 3. Get or create a default consent snapshot
-      // First check for existing consent agreement
-      let consentSnapshotId: string;
-      const { data: existingAgreement } = await supabase
-        .from("consent_agreements")
-        .select("id")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (existingAgreement) {
-        // Check for existing snapshot
-        const { data: existingSnapshot } = await supabase
-          .from("consent_snapshots")
-          .select("id")
-          .eq("consent_agreement_id", existingAgreement.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (existingSnapshot) {
-          consentSnapshotId = existingSnapshot.id;
-        } else {
-          // Create snapshot for existing agreement
-          const { data: newSnapshot, error: snapError } = await supabase
-            .from("consent_snapshots")
-            .insert({
-              consent_agreement_id: existingAgreement.id,
-              permissions: { store_health_data: true, create_timeline_events: true },
-            })
-            .select("id")
-            .single();
-
-          if (snapError) throw snapError;
-          consentSnapshotId = newSnapshot.id;
-        }
-      } else {
-        // Create new consent agreement and snapshot
-        const { data: newAgreement, error: agreementError } = await supabase
-          .from("consent_agreements")
-          .insert({
-            user_id: userId,
-            scope: "health_data_storage",
-          })
-          .select("id")
-          .single();
-
-        if (agreementError) throw agreementError;
-
-        const { data: newSnapshot, error: snapError } = await supabase
-          .from("consent_snapshots")
-          .insert({
-            consent_agreement_id: newAgreement.id,
-            permissions: { store_health_data: true, create_timeline_events: true },
-          })
-          .select("id")
-          .single();
-
-        if (snapError) throw snapError;
-        consentSnapshotId = newSnapshot.id;
-      }
-
-      // 4. Create timeline event
+      // Create timeline event
       const eventTime = new Date(data.eventDateTime).toISOString();
       const summary = data.entryText.slice(0, 140) + (data.entryText.length > 140 ? "..." : "");
 
@@ -214,7 +127,7 @@ export function JournalEntryForm() {
 
       if (eventError) throw eventError;
 
-      // 5. Create audit event (IDs only, no PHI)
+      // Create audit event (IDs only, no PHI)
       await supabase.from("audit_events").insert({
         user_id: userId,
         action: "journal_created",
