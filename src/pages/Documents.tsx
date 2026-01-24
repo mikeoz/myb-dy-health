@@ -1,4 +1,9 @@
-import { FileText } from "lucide-react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Upload } from "lucide-react";
+import { DocumentList } from "@/components/documents/DocumentList";
+import { DocumentUploadForm } from "@/components/documents/DocumentUploadForm";
 
 /**
  * Documents Page
@@ -16,31 +21,47 @@ import { FileText } from "lucide-react";
  * - Users can only access their own documents
  */
 const Documents = () => {
+  const [isUploadMode, setIsUploadMode] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleUploadSuccess = () => {
+    setIsUploadMode(false);
+    queryClient.invalidateQueries({ queryKey: ["document-artifacts"] });
+    queryClient.invalidateQueries({ queryKey: ["timeline-events"] });
+  };
+
   return (
     <div className="page-container animate-fade-in">
       <div className="page-header">
-        <h1 className="page-title">Documents</h1>
-        <p className="page-description">
-          Upload and manage your health documents
-        </p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="page-title">Documents</h1>
+            <p className="page-description">
+              Upload and manage your health documents
+            </p>
+          </div>
+          {!isUploadMode && (
+            <Button
+              onClick={() => setIsUploadMode(true)}
+              className="flex-shrink-0"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Upload
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Empty state - no documents yet */}
-      <div className="empty-state">
-        <FileText className="empty-state-icon" />
-        <h3 className="empty-state-title">No documents yet</h3>
-        <p className="empty-state-description">
-          Upload lab results, medical records, and other health documents to build your health history.
-        </p>
-      </div>
-
-      {/* TODO: Implement document management
-       * - File upload with drag-and-drop
-       * - Document type classification
-       * - Provenance capture on upload
-       * - Consent verification before upload
-       * - Async job for document processing
-       */}
+      {isUploadMode ? (
+        <div className="max-w-md mx-auto">
+          <DocumentUploadForm
+            onSuccess={handleUploadSuccess}
+            onCancel={() => setIsUploadMode(false)}
+          />
+        </div>
+      ) : (
+        <DocumentList />
+      )}
     </div>
   );
 };

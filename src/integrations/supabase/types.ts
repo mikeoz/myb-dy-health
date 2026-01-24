@@ -122,25 +122,40 @@ export type Database = {
         Row: {
           content_type: string
           created_at: string
+          doc_type: string | null
+          file_size: number | null
           id: string
+          occurred_at: string | null
+          original_filename: string | null
           provenance_id: string
           storage_path: string
+          title: string | null
           user_id: string
         }
         Insert: {
           content_type: string
           created_at?: string
+          doc_type?: string | null
+          file_size?: number | null
           id?: string
+          occurred_at?: string | null
+          original_filename?: string | null
           provenance_id: string
           storage_path: string
+          title?: string | null
           user_id: string
         }
         Update: {
           content_type?: string
           created_at?: string
+          doc_type?: string | null
+          file_size?: number | null
           id?: string
+          occurred_at?: string | null
+          original_filename?: string | null
           provenance_id?: string
           storage_path?: string
+          title?: string | null
           user_id?: string
         }
         Relationships: [
@@ -203,18 +218,21 @@ export type Database = {
           captured_at: string
           data_source_id: string
           id: string
+          metadata: Json | null
           method: Database["public"]["Enums"]["provenance_method"]
         }
         Insert: {
           captured_at?: string
           data_source_id: string
           id?: string
+          metadata?: Json | null
           method: Database["public"]["Enums"]["provenance_method"]
         }
         Update: {
           captured_at?: string
           data_source_id?: string
           id?: string
+          metadata?: Json | null
           method?: Database["public"]["Enums"]["provenance_method"]
         }
         Relationships: [
@@ -231,31 +249,37 @@ export type Database = {
         Row: {
           consent_snapshot_id: string
           created_at: string
+          details: Json | null
           event_time: string
           event_type: string
           id: string
           provenance_id: string
           summary: string
+          title: string | null
           user_id: string
         }
         Insert: {
           consent_snapshot_id: string
           created_at?: string
+          details?: Json | null
           event_time: string
           event_type: string
           id?: string
           provenance_id: string
           summary: string
+          title?: string | null
           user_id: string
         }
         Update: {
           consent_snapshot_id?: string
           created_at?: string
+          details?: Json | null
           event_time?: string
           event_type?: string
           id?: string
           provenance_id?: string
           summary?: string
+          title?: string | null
           user_id?: string
         }
         Relationships: [

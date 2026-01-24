@@ -1,28 +1,23 @@
-import { BookOpen } from "lucide-react";
+import { JournalEntryForm } from "@/components/journal/JournalEntryForm";
 
 /**
- * Journal Page - Placeholder for journal entries
+ * Journal Page - Create new journal entries
  * 
  * GUARDRAIL: No PHI in logs
+ * GUARDRAIL: Event-first data model with provenance
  */
 const Journal = () => {
   return (
     <div className="p-4 md:p-6 lg:p-8">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-md mx-auto">
         <div className="page-header">
-          <h1 className="page-title">Journal</h1>
+          <h1 className="page-title">New Journal Entry</h1>
           <p className="page-description">
-            Record your health observations and notes.
+            Capture a note about symptoms, meds, mood, questions for your doctor, or anything important.
           </p>
         </div>
 
-        <div className="empty-state">
-          <BookOpen className="empty-state-icon" />
-          <h3 className="empty-state-title">Journal Coming Soon</h3>
-          <p className="empty-state-description">
-            This feature is under development. You'll be able to add journal entries here.
-          </p>
-        </div>
+        <JournalEntryForm />
       </div>
     </div>
   );
