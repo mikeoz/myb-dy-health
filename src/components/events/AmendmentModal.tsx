@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { safeLog } from "@/lib/safe-logger";
 import { requireUserId, getOrCreateDataSource, getOrCreateDefaultConsentSnapshot } from "@/lib/write-helpers";
+import { getString, getDocumentArtifactId, getDocType, getNotes, getText, getOptionalCategory } from "@/lib/event-details";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +18,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -99,14 +99,15 @@ const DOC_TYPE_OPTIONS = [
 export function AmendmentModal({ isOpen, onClose, onSuccess, event, eventType }: AmendmentModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isJournal = eventType === "journal_entry";
-  const details = event.details as Record<string, unknown> | null;
+  const details = event.details;
 
+  // Use safe helpers for extracting default values
   const journalForm = useForm<JournalFormData>({
     resolver: zodResolver(journalSchema),
     defaultValues: {
-      title: (event.title || "") as string,
-      text: (details?.text as string) || "",
-      category: (details?.category as string) || "",
+      title: event.title || "",
+      text: getText(details) || "",
+      category: getOptionalCategory(details) || "",
       eventTime: format(new Date(event.event_time), "yyyy-MM-dd'T'HH:mm"),
       note: "",
     },
@@ -115,9 +116,9 @@ export function AmendmentModal({ isOpen, onClose, onSuccess, event, eventType }:
   const documentForm = useForm<DocumentFormData>({
     resolver: zodResolver(documentSchema),
     defaultValues: {
-      title: (event.title || "") as string,
-      docType: (details?.doc_type as string) || "",
-      notes: (details?.notes as string) || "",
+      title: event.title || "",
+      docType: getDocType(details) || "",
+      notes: getNotes(details) || "",
       documentDate: format(new Date(event.event_time), "yyyy-MM-dd"),
     },
   });
@@ -215,32 +216,31 @@ export function AmendmentModal({ isOpen, onClose, onSuccess, event, eventType }:
 
       if (provError) throw provError;
 
-      // Create amendment event
+      // Create amendment event - use safe helper for document_artifact_id
       const amendmentTitle = `Amended: ${data.title}`;
       const docTypeLabel = DOC_TYPE_OPTIONS.find((o) => o.value === data.docType)?.label || data.docType;
+      const documentArtifactId = getDocumentArtifactId(details);
 
       const { data: newEvent, error: eventError } = await supabase
         .from("timeline_events")
-        .insert([
-          {
-            user_id: userId,
-            event_type: "event_amended",
-            event_time: new Date().toISOString(),
-            title: amendmentTitle,
-            summary: `Updated ${docTypeLabel || "document"} details`,
-            details: {
-              amends_event_id: event.id,
-              amended_event_type: "document_uploaded",
-              document_artifact_id: (details?.document_artifact_id as string) || null,
-              title: data.title,
-              doc_type: data.docType,
-              notes: data.notes || null,
-              document_date: data.documentDate,
-            },
-            provenance_id: provenance.id,
-            consent_snapshot_id: consentSnapshotId,
+        .insert({
+          user_id: userId,
+          event_type: "event_amended",
+          event_time: new Date().toISOString(),
+          title: amendmentTitle,
+          summary: `Updated ${docTypeLabel || "document"} details`,
+          details: {
+            amends_event_id: event.id,
+            amended_event_type: "document_uploaded",
+            document_artifact_id: documentArtifactId,
+            title: data.title,
+            doc_type: data.docType,
+            notes: data.notes || null,
+            document_date: data.documentDate,
           },
-        ])
+          provenance_id: provenance.id,
+          consent_snapshot_id: consentSnapshotId,
+        })
         .select("id")
         .single();
 

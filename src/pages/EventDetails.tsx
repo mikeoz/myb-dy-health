@@ -1,10 +1,20 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Clock, BookOpen, FileText, ExternalLink, Edit, Loader2 } from "lucide-react";
+import { ArrowLeft, Clock, BookOpen, FileText, Download, Edit, Loader2, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { safeLog } from "@/lib/safe-logger";
+import { 
+  getString, 
+  getDocumentArtifactId, 
+  getAmendsEventId, 
+  getAmendedEventType,
+  getText,
+  getDocType,
+  getNotes,
+  getOptionalCategory 
+} from "@/lib/event-details";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { AmendmentModal } from "@/components/events/AmendmentModal";
@@ -14,6 +24,7 @@ import { AmendmentsList } from "@/components/events/AmendmentsList";
  * Event Details Page
  * 
  * Displays full details of a timeline event with amendment capability.
+ * Shows "current view" if amendments exist.
  * 
  * GUARDRAIL: No PHI in logs - only log IDs and action types
  * GUARDRAIL: User isolation via RLS
@@ -86,6 +97,7 @@ const EventDetails = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isAmendModalOpen, setIsAmendModalOpen] = useState(false);
+  const downloadLinkRef = useRef<HTMLAnchorElement>(null);
 
   // Fetch the event
   const { data: event, isLoading: eventLoading, error: eventError, refetch: refetchEvent } = useQuery({
@@ -112,7 +124,7 @@ const EventDetails = () => {
   });
 
   // Fetch document artifact if this is a document event
-  const documentArtifactId = event?.details?.document_artifact_id as string | undefined;
+  const documentArtifactId = event?.details ? getDocumentArtifactId(event.details) : null;
   const { data: artifact } = useQuery({
     queryKey: ["document-artifact", documentArtifactId],
     queryFn: async () => {
@@ -134,7 +146,7 @@ const EventDetails = () => {
     enabled: !!documentArtifactId,
   });
 
-  // Fetch amendments for this event
+  // Fetch amendments for this event (ordered by event_time desc to get latest first)
   const { data: amendments, refetch: refetchAmendments } = useQuery({
     queryKey: ["event-amendments", id],
     queryFn: async () => {
@@ -144,7 +156,7 @@ const EventDetails = () => {
         .from("timeline_events")
         .select("id, event_type, event_time, title, summary, details, created_at")
         .eq("event_type", "event_amended")
-        .order("created_at", { ascending: false });
+        .order("event_time", { ascending: false });
 
       if (error) {
         safeLog.error("Failed to fetch amendments", { action: "amendments_fetch_error", errorType: error.code });
@@ -153,11 +165,14 @@ const EventDetails = () => {
 
       // Filter to amendments that reference this event
       return (data || []).filter(
-        (e) => (e.details as Record<string, unknown>)?.amends_event_id === id
+        (e) => getAmendsEventId(e.details) === id
       );
     },
     enabled: !!id,
   });
+
+  // Get the latest amendment (first in the list since ordered desc)
+  const latestAmendment = amendments && amendments.length > 0 ? amendments[0] : null;
 
   const handleViewDocument = async () => {
     if (!artifact?.storage_path) {
@@ -176,7 +191,11 @@ const EventDetails = () => {
 
       if (error) throw error;
 
-      window.open(data.signedUrl, "_blank");
+      // Use hidden anchor for download to avoid popup blockers
+      if (downloadLinkRef.current) {
+        downloadLinkRef.current.href = data.signedUrl;
+        downloadLinkRef.current.click();
+      }
     } catch (error) {
       safeLog.error("Failed to create signed URL", {
         action: "signed_url_error",
@@ -214,9 +233,9 @@ const EventDetails = () => {
     return (
       <div className="page-container animate-fade-in">
         <div className="mb-6">
-          <Button variant="ghost" onClick={() => navigate(-1)}>
+          <Button variant="ghost" onClick={() => navigate("/timeline")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+            Back to Timeline
           </Button>
         </div>
         <div className="empty-state">
@@ -236,12 +255,28 @@ const EventDetails = () => {
     color: "bg-secondary text-secondary-foreground",
   };
   const Icon = config.icon;
-  const details = event.details as Record<string, unknown> | null;
+  const details = event.details;
 
   const isJournalEntry = event.event_type === "journal_entry";
   const isDocumentEvent = event.event_type === "document_uploaded";
   const isAmendment = event.event_type === "event_amended";
   const canAmend = isJournalEntry || isDocumentEvent;
+  const hasAmendments = amendments && amendments.length > 0;
+
+  // Extract values using safe helpers
+  const category = getOptionalCategory(details);
+  const docType = getDocType(details);
+  const text = getText(details);
+  const notes = getNotes(details);
+  const amendsEventId = getAmendsEventId(details);
+  const amendedEventType = getAmendedEventType(details);
+
+  // Get current view values from latest amendment if available
+  const currentViewText = latestAmendment ? getText(latestAmendment.details) : text;
+  const currentViewCategory = latestAmendment ? getOptionalCategory(latestAmendment.details) : category;
+  const currentViewTitle = latestAmendment ? latestAmendment.title?.replace("Amended: ", "") : event.title;
+  const currentViewDocType = latestAmendment ? getDocType(latestAmendment.details) : docType;
+  const currentViewNotes = latestAmendment ? getNotes(latestAmendment.details) : notes;
 
   // Format file size
   const formatFileSize = (bytes: number | null) => {
@@ -253,13 +288,45 @@ const EventDetails = () => {
 
   return (
     <div className="page-container animate-fade-in">
+      {/* Hidden download link for document viewing */}
+      <a 
+        ref={downloadLinkRef} 
+        className="hidden" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        download
+      />
+
       {/* Header with back button */}
       <div className="mb-6">
-        <Button variant="ghost" onClick={() => navigate(-1)}>
+        <Button variant="ghost" onClick={() => navigate("/timeline")}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
+          Back to Timeline
         </Button>
       </div>
+
+      {/* Amendment banner for original events */}
+      {hasAmendments && !isAmendment && (
+        <div className="mb-4 rounded-lg border border-warning bg-warning/10 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-warning-foreground flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-medium text-warning-foreground">This event has been amended</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                The content below shows the latest version from the most recent amendment.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => latestAmendment && navigate(`/event/${latestAmendment.id}`)}
+              >
+                View Latest Amendment
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main event card */}
       <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
@@ -274,14 +341,14 @@ const EventDetails = () => {
                 {config.label}
               </span>
               {/* Category or doc type badge */}
-              {isJournalEntry && details?.category && (
+              {isJournalEntry && currentViewCategory && (
                 <span className="ml-2 inline-block rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                  {CATEGORY_LABELS[String(details.category)] || String(details.category)}
+                  {CATEGORY_LABELS[currentViewCategory] || currentViewCategory}
                 </span>
               )}
-              {isDocumentEvent && details?.doc_type && (
+              {isDocumentEvent && currentViewDocType && (
                 <span className="ml-2 inline-block rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                  {DOC_TYPE_LABELS[String(details.doc_type)] || String(details.doc_type)}
+                  {DOC_TYPE_LABELS[currentViewDocType] || currentViewDocType}
                 </span>
               )}
             </div>
@@ -291,9 +358,9 @@ const EventDetails = () => {
           </time>
         </div>
 
-        {/* Title */}
+        {/* Title - show current view if amended */}
         <h1 className="text-xl font-semibold text-foreground mb-2">
-          {event.title || "Untitled"}
+          {currentViewTitle || "Untitled"}
         </h1>
 
         {/* Summary */}
@@ -301,23 +368,29 @@ const EventDetails = () => {
           {event.summary}
         </p>
 
-        {/* Full content for journal entries */}
-        {isJournalEntry && details?.text && (
+        {/* Full content for journal entries - show current view */}
+        {isJournalEntry && currentViewText && (
           <div className="bg-muted/50 rounded-lg p-4 mb-4">
-            <h3 className="text-sm font-medium text-muted-foreground mb-2">Entry Text</h3>
-            <p className="text-foreground whitespace-pre-wrap">
-              {String(details.text)}
+            <h3 className="text-sm font-medium text-muted-foreground mb-2">
+              {hasAmendments ? "Entry Text (Current Version)" : "Entry Text"}
+            </h3>
+            <p className="text-foreground whitespace-pre-wrap leading-relaxed">
+              {currentViewText}
             </p>
           </div>
         )}
 
-        {/* Document details */}
+        {/* Document details - show current view */}
         {isDocumentEvent && artifact && (
           <div className="bg-muted/50 rounded-lg p-4 mb-4 space-y-2">
-            <h3 className="text-sm font-medium text-muted-foreground mb-2">Document Details</h3>
+            <h3 className="text-sm font-medium text-muted-foreground mb-2">
+              {hasAmendments ? "Document Details (Current Version)" : "Document Details"}
+            </h3>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <span className="text-muted-foreground">Type:</span>
-              <span className="text-foreground">{DOC_TYPE_LABELS[artifact.doc_type || ""] || artifact.doc_type || "Unknown"}</span>
+              <span className="text-foreground">
+                {DOC_TYPE_LABELS[currentViewDocType || ""] || currentViewDocType || artifact.doc_type || "Unknown"}
+              </span>
               
               <span className="text-muted-foreground">Format:</span>
               <span className="text-foreground">{artifact.content_type}</span>
@@ -330,34 +403,44 @@ const EventDetails = () => {
               )}
             </div>
             <Button onClick={handleViewDocument} className="mt-3">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              View Document
+              <Download className="h-4 w-4 mr-2" />
+              Open Document
             </Button>
           </div>
         )}
 
-        {/* Notes if available */}
-        {details?.notes && (
+        {/* Notes if available - show current view */}
+        {(currentViewNotes || notes) && (
           <div className="bg-muted/50 rounded-lg p-4 mb-4">
             <h3 className="text-sm font-medium text-muted-foreground mb-2">Notes</h3>
-            <p className="text-foreground">{String(details.notes)}</p>
+            <p className="text-foreground">{currentViewNotes || notes}</p>
           </div>
         )}
 
         {/* Amendment reference */}
-        {isAmendment && details?.amends_event_id && (
+        {isAmendment && amendsEventId && (
           <div className="bg-warning/10 rounded-lg p-4 mb-4">
             <h3 className="text-sm font-medium text-warning-foreground mb-2">This is an amendment</h3>
             <p className="text-sm text-muted-foreground mb-2">
-              This event amends a previous {String(details.amended_event_type || "event").replace(/_/g, " ")}.
+              This event amends a previous {(amendedEventType || "event").replace(/_/g, " ")}.
             </p>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate(`/event/${details.amends_event_id}`)}
+              onClick={() => navigate(`/event/${amendsEventId}`)}
             >
               View Original Event
             </Button>
+          </div>
+        )}
+
+        {/* Amendment text content */}
+        {isAmendment && text && (
+          <div className="bg-muted/50 rounded-lg p-4 mb-4">
+            <h3 className="text-sm font-medium text-muted-foreground mb-2">Amended Content</h3>
+            <p className="text-foreground whitespace-pre-wrap leading-relaxed">
+              {text}
+            </p>
           </div>
         )}
 
@@ -395,9 +478,12 @@ const EventDetails = () => {
         </div>
       </div>
 
-      {/* Amendments section */}
-      {amendments && amendments.length > 0 && (
-        <AmendmentsList amendments={amendments} onViewAmendment={(amendId) => navigate(`/event/${amendId}`)} />
+      {/* Version history section */}
+      {hasAmendments && (
+        <AmendmentsList 
+          amendments={amendments} 
+          onViewAmendment={(amendId) => navigate(`/event/${amendId}`)} 
+        />
       )}
 
       {/* Amendment Modal */}

@@ -1,7 +1,15 @@
-import { Clock, BookOpen, FileText, ExternalLink, Edit } from "lucide-react";
+import { Clock, BookOpen, FileText, ExternalLink, Edit, GitBranch } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { 
+  getString, 
+  getDocumentArtifactId, 
+  getAmendsEventId, 
+  getAmendedEventType,
+  getOptionalCategory,
+  getDocType 
+} from "@/lib/event-details";
 
 interface TimelineEvent {
   id: string;
@@ -57,6 +65,7 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 interface TimelineEventCardProps {
   event: TimelineEvent;
   onViewDocument: (documentArtifactId: string) => void;
+  hasAmendments?: boolean;
 }
 
 /**
@@ -64,7 +73,7 @@ interface TimelineEventCardProps {
  * 
  * GUARDRAIL: No PHI in logs - only displays, never logs content
  */
-export function TimelineEventCard({ event, onViewDocument }: TimelineEventCardProps) {
+export function TimelineEventCard({ event, onViewDocument, hasAmendments }: TimelineEventCardProps) {
   const navigate = useNavigate();
   const config = EVENT_TYPE_CONFIG[event.event_type] || {
     label: event.event_type,
@@ -72,8 +81,16 @@ export function TimelineEventCard({ event, onViewDocument }: TimelineEventCardPr
     color: "bg-secondary text-secondary-foreground",
   };
   const Icon = config.icon;
-  const details = event.details as Record<string, unknown> | null;
+  const details = event.details;
   const isAmendment = event.event_type === "event_amended";
+
+  // Use safe helpers for all details access
+  const category = getOptionalCategory(details);
+  const docType = getDocType(details);
+  const documentArtifactId = getDocumentArtifactId(details);
+  const amendsEventId = getAmendsEventId(details);
+  const amendedEventType = getAmendedEventType(details);
+  const amendedCategory = isAmendment ? getOptionalCategory(details) : null;
 
   const handleCardClick = () => {
     navigate(`/event/${event.id}`);
@@ -81,14 +98,10 @@ export function TimelineEventCard({ event, onViewDocument }: TimelineEventCardPr
 
   const handleViewClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (details?.document_artifact_id) {
-      onViewDocument(details.document_artifact_id as string);
+    if (documentArtifactId) {
+      onViewDocument(documentArtifactId);
     }
   };
-
-  // For amendments, show the amended event type badge
-  const amendedEventType = isAmendment && details?.amended_event_type;
-  const amendedCategory = isAmendment && details?.category;
 
   return (
     <div 
@@ -109,15 +122,15 @@ export function TimelineEventCard({ event, onViewDocument }: TimelineEventCardPr
                 {config.label}
               </span>
               {/* Journal category badge */}
-              {event.event_type === "journal_entry" && details?.category && (
+              {event.event_type === "journal_entry" && category && (
                 <span className="inline-block rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                  {CATEGORY_LABELS[String(details.category)] || String(details.category)}
+                  {CATEGORY_LABELS[category] || category}
                 </span>
               )}
               {/* Document type badge */}
-              {event.event_type === "document_uploaded" && details?.doc_type && (
+              {event.event_type === "document_uploaded" && docType && (
                 <span className="inline-block rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                  {DOC_TYPE_LABELS[String(details.doc_type)] || String(details.doc_type)}
+                  {DOC_TYPE_LABELS[docType] || docType}
                 </span>
               )}
               {/* Amendment badges */}
@@ -133,7 +146,14 @@ export function TimelineEventCard({ event, onViewDocument }: TimelineEventCardPr
               )}
               {isAmendment && amendedCategory && (
                 <span className="inline-block rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                  {CATEGORY_LABELS[String(amendedCategory)] || String(amendedCategory)}
+                  {CATEGORY_LABELS[amendedCategory] || amendedCategory}
+                </span>
+              )}
+              {/* Amended indicator for original events */}
+              {hasAmendments && !isAmendment && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-xs text-warning-foreground">
+                  <GitBranch className="h-3 w-3" />
+                  Amended
                 </span>
               )}
             </div>
@@ -143,13 +163,19 @@ export function TimelineEventCard({ event, onViewDocument }: TimelineEventCardPr
             <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
               {event.summary}
             </p>
+            {/* Show "Amends: {id}" for amendment events */}
+            {isAmendment && amendsEventId && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Amends: {amendsEventId.slice(0, 8)}...
+              </p>
+            )}
           </div>
         </div>
         <div className="flex flex-col items-end gap-2 flex-shrink-0">
           <time className="text-xs text-muted-foreground whitespace-nowrap">
             {format(new Date(event.event_time), "MMM d, yyyy")}
           </time>
-          {event.event_type === "document_uploaded" && details?.document_artifact_id && (
+          {event.event_type === "document_uploaded" && documentArtifactId && (
             <Button
               variant="ghost"
               size="sm"

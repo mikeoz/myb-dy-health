@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
-import { Clock, Loader2, BookOpen, FileText, ExternalLink } from "lucide-react";
+import { Clock, Loader2, BookOpen, FileText } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { safeLog } from "@/lib/safe-logger";
-import { format } from "date-fns";
+import { getAmendsEventId } from "@/lib/event-details";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { TimelineFilters, type FilterValue } from "@/components/timeline/TimelineFilters";
@@ -66,6 +66,22 @@ const Timeline = () => {
     },
   });
 
+  // Build a set of event IDs that have amendments
+  const amendedEventIds = useMemo(() => {
+    if (!events) return new Set<string>();
+    
+    const ids = new Set<string>();
+    for (const event of events) {
+      if (event.event_type === "event_amended") {
+        const amendsId = getAmendsEventId(event.details);
+        if (amendsId) {
+          ids.add(amendsId);
+        }
+      }
+    }
+    return ids;
+  }, [events]);
+
   // Filter events client-side
   const filteredEvents = useMemo(() => {
     if (!events) return [];
@@ -100,7 +116,14 @@ const Timeline = () => {
 
       if (error) throw error;
 
-      window.open(data.signedUrl, "_blank");
+      // Create a temporary link element to trigger download
+      const link = document.createElement("a");
+      link.href = data.signedUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (error) {
       safeLog.error("Failed to view document from timeline", {
         action: "timeline_document_view_error",
@@ -229,6 +252,7 @@ const Timeline = () => {
               key={event.id}
               event={event}
               onViewDocument={handleViewDocument}
+              hasAmendments={amendedEventIds.has(event.id)}
             />
           ))}
         </div>
