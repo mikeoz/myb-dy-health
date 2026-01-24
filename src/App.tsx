@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Home from "./pages/Home";
 import Journal from "./pages/Journal";
 import Timeline from "./pages/Timeline";
+import EventDetails from "./pages/EventDetails";
 import Documents from "./pages/Documents";
 import Sources from "./pages/Sources";
 import Consent from "./pages/Consent";
@@ -36,6 +37,7 @@ const App = () => (
           <Route path="/home" element={<AppLayout><Home /></AppLayout>} />
           <Route path="/journal" element={<AppLayout><Journal /></AppLayout>} />
           <Route path="/timeline" element={<AppLayout><Timeline /></AppLayout>} />
+          <Route path="/event/:id" element={<AppLayout><EventDetails /></AppLayout>} />
           <Route path="/documents" element={<AppLayout><Documents /></AppLayout>} />
           <Route path="/sources" element={<AppLayout><Sources /></AppLayout>} />
           <Route path="/consent" element={<AppLayout><Consent /></AppLayout>} />
