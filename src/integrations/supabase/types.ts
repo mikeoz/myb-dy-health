@@ -310,7 +310,11 @@ export type Database = {
       data_source_status: "active" | "inactive" | "pending"
       data_source_type: "manual" | "upload" | "portal"
       job_status: "pending" | "running" | "complete" | "failed"
-      provenance_method: "manual_entry" | "upload" | "portal_import"
+      provenance_method:
+        | "manual_entry"
+        | "upload"
+        | "portal_import"
+        | "manual_amendment"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -441,7 +445,12 @@ export const Constants = {
       data_source_status: ["active", "inactive", "pending"],
       data_source_type: ["manual", "upload", "portal"],
       job_status: ["pending", "running", "complete", "failed"],
-      provenance_method: ["manual_entry", "upload", "portal_import"],
+      provenance_method: [
+        "manual_entry",
+        "upload",
+        "portal_import",
+        "manual_amendment",
+      ],
     },
   },
 } as const

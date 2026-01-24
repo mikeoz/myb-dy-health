@@ -1,5 +1,6 @@
-import { Clock, BookOpen, FileText, ExternalLink } from "lucide-react";
+import { Clock, BookOpen, FileText, ExternalLink, Edit } from "lucide-react";
 import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 interface TimelineEvent {
@@ -28,6 +29,11 @@ const EVENT_TYPE_CONFIG: Record<string, {
     label: "Document", 
     icon: FileText, 
     color: "bg-accent/10 text-accent-foreground" 
+  },
+  event_amended: { 
+    label: "Amendment", 
+    icon: Edit, 
+    color: "bg-warning/10 text-warning-foreground" 
   },
 };
 
@@ -59,6 +65,7 @@ interface TimelineEventCardProps {
  * GUARDRAIL: No PHI in logs - only displays, never logs content
  */
 export function TimelineEventCard({ event, onViewDocument }: TimelineEventCardProps) {
+  const navigate = useNavigate();
   const config = EVENT_TYPE_CONFIG[event.event_type] || {
     label: event.event_type,
     icon: Clock,
@@ -66,9 +73,31 @@ export function TimelineEventCard({ event, onViewDocument }: TimelineEventCardPr
   };
   const Icon = config.icon;
   const details = event.details as Record<string, unknown> | null;
+  const isAmendment = event.event_type === "event_amended";
+
+  const handleCardClick = () => {
+    navigate(`/event/${event.id}`);
+  };
+
+  const handleViewClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (details?.document_artifact_id) {
+      onViewDocument(details.document_artifact_id as string);
+    }
+  };
+
+  // For amendments, show the amended event type badge
+  const amendedEventType = isAmendment && details?.amended_event_type;
+  const amendedCategory = isAmendment && details?.category;
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+    <div 
+      className="rounded-lg border border-border bg-card p-4 shadow-sm cursor-pointer hover:border-primary/30 hover:shadow-md transition-all"
+      onClick={handleCardClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === "Enter" && handleCardClick()}
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3 min-w-0">
           <div className={`p-2 rounded-lg ${config.color}`}>
@@ -91,6 +120,22 @@ export function TimelineEventCard({ event, onViewDocument }: TimelineEventCardPr
                   {DOC_TYPE_LABELS[String(details.doc_type)] || String(details.doc_type)}
                 </span>
               )}
+              {/* Amendment badges */}
+              {isAmendment && amendedEventType === "journal_entry" && (
+                <span className="inline-block rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+                  Journal
+                </span>
+              )}
+              {isAmendment && amendedEventType === "document_uploaded" && (
+                <span className="inline-block rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+                  Document
+                </span>
+              )}
+              {isAmendment && amendedCategory && (
+                <span className="inline-block rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+                  {CATEGORY_LABELS[String(amendedCategory)] || String(amendedCategory)}
+                </span>
+              )}
             </div>
             <h4 className="font-medium text-foreground">
               {event.title || "Untitled"}
@@ -108,7 +153,7 @@ export function TimelineEventCard({ event, onViewDocument }: TimelineEventCardPr
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => onViewDocument(details.document_artifact_id as string)}
+              onClick={handleViewClick}
             >
               <ExternalLink className="h-3 w-3 mr-1" />
               View
