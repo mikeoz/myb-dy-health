@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import { Clock, Loader2, BookOpen, FileText, ExternalLink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -6,6 +7,8 @@ import { safeLog } from "@/lib/safe-logger";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { TimelineFilters, type FilterValue } from "@/components/timeline/TimelineFilters";
+import { TimelineEventCard } from "@/components/timeline/TimelineEventCard";
 
 /**
  * Timeline Page
@@ -32,33 +35,9 @@ interface TimelineEvent {
   consent_snapshot_id: string;
 }
 
-const EVENT_TYPE_CONFIG: Record<string, { 
-  label: string; 
-  icon: typeof Clock; 
-  color: string;
-}> = {
-  journal_entry: { 
-    label: "Journal Entry", 
-    icon: BookOpen, 
-    color: "bg-primary/10 text-primary" 
-  },
-  document_uploaded: { 
-    label: "Document", 
-    icon: FileText, 
-    color: "bg-accent/10 text-accent" 
-  },
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  symptom: "Symptom",
-  medication: "Medication",
-  mood: "Mood",
-  question: "Question",
-  other: "Other",
-};
-
 const Timeline = () => {
   const { toast } = useToast();
+  const [filter, setFilter] = useState<FilterValue>("all");
 
   const { data: events, isLoading, error } = useQuery({
     queryKey: ["timeline-events"],
@@ -87,6 +66,20 @@ const Timeline = () => {
     },
   });
 
+  // Filter events client-side
+  const filteredEvents = useMemo(() => {
+    if (!events) return [];
+    
+    switch (filter) {
+      case "journal":
+        return events.filter((e) => e.event_type === "journal_entry");
+      case "documents":
+        return events.filter((e) => e.event_type === "document_uploaded");
+      default:
+        return events;
+    }
+  }, [events, filter]);
+
   const handleViewDocument = async (documentArtifactId: string) => {
     try {
       // First get the document artifact to get the storage path
@@ -100,9 +93,10 @@ const Timeline = () => {
         throw new Error("Document not found");
       }
 
+      // Use 15 minute signed URL (extended from 5 min)
       const { data, error } = await supabase.storage
         .from("documents")
-        .createSignedUrl(artifact.storage_path, 60 * 5);
+        .createSignedUrl(artifact.storage_path, 60 * 15);
 
       if (error) throw error;
 
@@ -150,6 +144,70 @@ const Timeline = () => {
     );
   }
 
+  // Determine empty state based on filter
+  const renderEmptyState = () => {
+    if (filter === "journal") {
+      return (
+        <div className="empty-state">
+          <BookOpen className="empty-state-icon" />
+          <h3 className="empty-state-title">No journal entries</h3>
+          <p className="empty-state-description">
+            Start tracking your health by adding a journal entry.
+          </p>
+          <Button asChild className="mt-6">
+            <Link to="/journal">
+              <BookOpen className="h-4 w-4 mr-2" />
+              Add Journal Entry
+            </Link>
+          </Button>
+        </div>
+      );
+    }
+    
+    if (filter === "documents") {
+      return (
+        <div className="empty-state">
+          <FileText className="empty-state-icon" />
+          <h3 className="empty-state-title">No documents</h3>
+          <p className="empty-state-description">
+            Upload your medical documents to keep them organized.
+          </p>
+          <Button asChild className="mt-6">
+            <Link to="/documents">
+              <FileText className="h-4 w-4 mr-2" />
+              Upload Document
+            </Link>
+          </Button>
+        </div>
+      );
+    }
+
+    // "All" filter empty state
+    return (
+      <div className="empty-state">
+        <Clock className="empty-state-icon" />
+        <h3 className="empty-state-title">No events yet</h3>
+        <p className="empty-state-description">
+          Your health timeline will appear here as you add content.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 mt-6">
+          <Button asChild>
+            <Link to="/journal">
+              <BookOpen className="h-4 w-4 mr-2" />
+              Add Journal Entry
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/documents">
+              <FileText className="h-4 w-4 mr-2" />
+              Upload Document
+            </Link>
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="page-container animate-fade-in">
       <div className="page-header">
@@ -159,92 +217,20 @@ const Timeline = () => {
         </p>
       </div>
 
-      {events?.length === 0 ? (
-        <div className="empty-state">
-          <Clock className="empty-state-icon" />
-          <h3 className="empty-state-title">No events yet</h3>
-          <p className="empty-state-description">
-            Your health timeline will appear here as you add content.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 mt-6">
-            <Button asChild>
-              <Link to="/journal">
-                <BookOpen className="h-4 w-4 mr-2" />
-                Add Journal Entry
-              </Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/documents">
-                <FileText className="h-4 w-4 mr-2" />
-                Upload Document
-              </Link>
-            </Button>
-          </div>
-        </div>
+      {/* Filter controls */}
+      <TimelineFilters value={filter} onChange={setFilter} />
+
+      {filteredEvents.length === 0 ? (
+        renderEmptyState()
       ) : (
         <div className="space-y-4">
-          {events?.map((event) => {
-            const config = EVENT_TYPE_CONFIG[event.event_type] || {
-              label: event.event_type,
-              icon: Clock,
-              color: "bg-secondary text-secondary-foreground",
-            };
-            const Icon = config.icon;
-            const details = event.details as Record<string, unknown> | null;
-
-            return (
-              <div
-                key={event.id}
-                className="rounded-lg border border-border bg-card p-4 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className={`p-2 rounded-lg ${config.color}`}>
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${config.color}`}>
-                          {config.label}
-                        </span>
-                        {event.event_type === "journal_entry" && details?.category && (
-                          <span className="inline-block rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                            {CATEGORY_LABELS[String(details.category)] || String(details.category)}
-                          </span>
-                        )}
-                      </div>
-                      <h4 className="font-medium text-foreground">
-                        {event.title || "Untitled"}
-                      </h4>
-                      <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                        {event.summary}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                    <time className="text-xs text-muted-foreground whitespace-nowrap">
-                      {format(new Date(event.event_time), "MMM d, yyyy")}
-                    </time>
-                    {event.event_type === "document_uploaded" && details?.document_artifact_id && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewDocument(details.document_artifact_id as string)}
-                      >
-                        <ExternalLink className="h-3 w-3 mr-1" />
-                        View
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                {/* Metadata footer - safe to display */}
-                <div className="mt-3 flex gap-4 text-xs text-muted-foreground border-t border-border pt-2">
-                  <span>ID: {event.id.slice(0, 8)}...</span>
-                  <span>Provenance: {event.provenance_id.slice(0, 8)}...</span>
-                </div>
-              </div>
-            );
-          })}
+          {filteredEvents.map((event) => (
+            <TimelineEventCard
+              key={event.id}
+              event={event}
+              onViewDocument={handleViewDocument}
+            />
+          ))}
         </div>
       )}
     </div>
