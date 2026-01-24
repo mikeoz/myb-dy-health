@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Clock, BookOpen, FileText, Download, Edit, Loader2, AlertTriangle } from "lucide-react";
@@ -6,7 +6,6 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { safeLog } from "@/lib/safe-logger";
 import { 
-  getString, 
   getDocumentArtifactId, 
   getAmendsEventId, 
   getAmendedEventType,
@@ -97,7 +96,6 @@ const EventDetails = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isAmendModalOpen, setIsAmendModalOpen] = useState(false);
-  const downloadLinkRef = useRef<HTMLAnchorElement>(null);
 
   // Fetch the event
   const { data: event, isLoading: eventLoading, error: eventError, refetch: refetchEvent } = useQuery({
@@ -175,7 +173,8 @@ const EventDetails = () => {
   const latestAmendment = amendments && amendments.length > 0 ? amendments[0] : null;
 
   const handleViewDocument = async () => {
-    if (!artifact?.storage_path) {
+    const artifactId = documentArtifactId;
+    if (!artifactId) {
       toast({
         variant: "destructive",
         title: "Unable to view document",
@@ -185,20 +184,59 @@ const EventDetails = () => {
     }
 
     try {
-      const { data, error } = await supabase.storage
-        .from("documents")
-        .createSignedUrl(artifact.storage_path, 60 * 15);
-
-      if (error) throw error;
-
-      // Use hidden anchor for download to avoid popup blockers
-      if (downloadLinkRef.current) {
-        downloadLinkRef.current.href = data.signedUrl;
-        downloadLinkRef.current.click();
+      // Get current session for auth header
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        toast({
+          variant: "destructive",
+          title: "Not authenticated",
+          description: "Please sign in to download documents.",
+        });
+        return;
       }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const downloadUrl = `${supabaseUrl}/functions/v1/documents-download?artifact_id=${encodeURIComponent(artifactId)}`;
+      
+      // Use fetch to download with auth header, then trigger browser download
+      const response = await fetch(downloadUrl, {
+        headers: {
+          Authorization: `Bearer ${session.session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.status}`);
+      }
+
+      // Get filename from Content-Disposition header if available
+      const contentDisposition = response.headers.get("Content-Disposition");
+      let filename = "document";
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match) {
+          filename = match[1];
+        }
+      }
+
+      // Create blob and trigger download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      safeLog.info("Document downloaded", {
+        action: "document_download_success",
+        id: artifactId,
+      });
     } catch (error) {
-      safeLog.error("Failed to create signed URL", {
-        action: "signed_url_error",
+      safeLog.error("Failed to download document", {
+        action: "document_download_error",
         errorType: error instanceof Error ? error.name : "unknown",
       });
       toast({
@@ -288,15 +326,6 @@ const EventDetails = () => {
 
   return (
     <div className="page-container animate-fade-in">
-      {/* Hidden download link for document viewing */}
-      <a 
-        ref={downloadLinkRef} 
-        className="hidden" 
-        target="_blank" 
-        rel="noopener noreferrer"
-        download
-      />
-
       {/* Header with back button */}
       <div className="mb-6">
         <Button variant="ghost" onClick={() => navigate("/timeline")}>

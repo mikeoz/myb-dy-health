@@ -2,15 +2,17 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { safeLog } from "@/lib/safe-logger";
 import { format } from "date-fns";
-import { FileText, ExternalLink, Loader2 } from "lucide-react";
+import { FileText, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useRef } from "react";
 
 /**
  * Document List Component
  * 
  * GUARDRAIL: No PHI in logs
  * GUARDRAIL: User isolation via RLS
+ * GUARDRAIL: Secure download via Edge Function proxy
  */
 
 interface DocumentArtifact {
@@ -34,8 +36,19 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+/**
+ * Build the Edge Function URL for document download.
+ * Uses the proxy to avoid browser/extension blocking of signed URLs.
+ */
+const getDocumentDownloadUrl = (artifactId: string): string => {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  return `${supabaseUrl}/functions/v1/documents-download?artifact_id=${encodeURIComponent(artifactId)}`;
+};
+
 export function DocumentList() {
   const { toast } = useToast();
+  const downloadFormRef = useRef<HTMLFormElement>(null);
+  const downloadIframeRef = useRef<HTMLIFrameElement>(null);
 
   const { data: documents, isLoading, error } = useQuery({
     queryKey: ["document-artifacts"],
@@ -64,23 +77,65 @@ export function DocumentList() {
     },
   });
 
-  const handleViewDocument = async (storagePath: string) => {
+  const handleDownloadDocument = async (artifactId: string) => {
     try {
-      const { data, error } = await supabase.storage
-        .from("documents")
-        .createSignedUrl(storagePath, 60 * 5); // 5 minute URL
+      // Get current session for auth header
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        toast({
+          variant: "destructive",
+          title: "Not authenticated",
+          description: "Please sign in to download documents.",
+        });
+        return;
+      }
 
-      if (error) throw error;
+      const downloadUrl = getDocumentDownloadUrl(artifactId);
+      
+      // Use fetch to download with auth header, then trigger browser download
+      const response = await fetch(downloadUrl, {
+        headers: {
+          Authorization: `Bearer ${session.session.access_token}`,
+        },
+      });
 
-      window.open(data.signedUrl, "_blank");
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.status}`);
+      }
+
+      // Get filename from Content-Disposition header if available
+      const contentDisposition = response.headers.get("Content-Disposition");
+      let filename = "document";
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match) {
+          filename = match[1];
+        }
+      }
+
+      // Create blob and trigger download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      safeLog.info("Document downloaded", {
+        action: "document_download_success",
+        id: artifactId,
+      });
     } catch (error) {
-      safeLog.error("Failed to get document URL", {
-        action: "document_view_error",
+      safeLog.error("Failed to download document", {
+        action: "document_download_error",
         errorType: error instanceof Error ? error.name : "unknown",
       });
       toast({
         variant: "destructive",
-        title: "Unable to view document",
+        title: "Unable to download document",
         description: "Please try again.",
       });
     }
@@ -148,11 +203,11 @@ export function DocumentList() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => handleViewDocument(doc.storage_path)}
+              onClick={() => handleDownloadDocument(doc.id)}
               className="flex-shrink-0"
             >
-              <ExternalLink className="h-4 w-4 mr-1" />
-              View
+              <Download className="h-4 w-4 mr-1" />
+              Download
             </Button>
           </div>
         </div>

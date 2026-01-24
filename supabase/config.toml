@@ -2,3 +2,6 @@ project_id = "bntalhlvexmljdqnbjgg"
 
 [functions.dev-create-test-user]
 verify_jwt = false
+
+[functions.documents-download]
+verify_jwt = false
