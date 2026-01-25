@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { Clock, Loader2, BookOpen, FileText } from "lucide-react";
+import { Clock, Loader2, BookOpen, FileText, Cloud } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -107,6 +107,8 @@ const Timeline = () => {
         return events.filter((e) => e.event_type === "journal_entry");
       case "documents":
         return events.filter((e) => e.event_type === "document_uploaded");
+      case "external":
+        return events.filter((e) => e.event_type === "external_event");
       default:
         return events;
     }
@@ -353,6 +355,24 @@ const Timeline = () => {
             <Link to="/documents">
               <FileText className="h-4 w-4 mr-2" />
               Upload Document
+            </Link>
+          </Button>
+        </div>
+      );
+    }
+
+    if (filter === "external") {
+      return (
+        <div className="empty-state">
+          <Cloud className="empty-state-icon" />
+          <h3 className="empty-state-title">No external records</h3>
+          <p className="empty-state-description">
+            Connect an external source to import health records.
+          </p>
+          <Button asChild className="mt-6">
+            <Link to="/sources">
+              <Cloud className="h-4 w-4 mr-2" />
+              Manage Sources
             </Link>
           </Button>
         </div>

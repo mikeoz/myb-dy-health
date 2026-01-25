@@ -1,11 +1,13 @@
-import { ArrowLeft, ExternalLink, Smartphone, Loader2, RefreshCw, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, ExternalLink, Smartphone, Loader2, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Cloud } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { safeLog } from "@/lib/safe-logger";
+import { createAuditEvent } from "@/lib/audit-helpers";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -81,6 +83,63 @@ const SourceDetails = () => {
       return data as DataSource;
     },
     enabled: !!id,
+  });
+
+  // Fasten-specific sync mutation (calls edge function)
+  const fastenSyncMutation = useMutation({
+    mutationFn: async () => {
+      if (!source) throw new Error("No source loaded");
+      
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) throw new Error("Not authenticated");
+      
+      // Log audit event
+      await createAuditEvent("external_sync_requested", "data_source", source.id);
+      
+      safeLog.info("Fasten sync requested", {
+        action: "external_sync_requested",
+        id: source.id,
+      });
+      
+      // Call the edge function for demo sync
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/fasten-demo-sync`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.session.access_token}`,
+        },
+        body: JSON.stringify({ source_id: source.id }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Sync failed");
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["data-source", id] });
+      queryClient.invalidateQueries({ queryKey: ["data-sources"] });
+      queryClient.invalidateQueries({ queryKey: ["timeline-events"] });
+      
+      toast({
+        title: "Demo sync complete",
+        description: `Imported ${data.imported_count} external health records.`,
+      });
+    },
+    onError: (error) => {
+      safeLog.error("Fasten sync failed", {
+        action: "external_sync_error",
+        errorType: error instanceof Error ? error.name : "unknown",
+      });
+      toast({
+        variant: "destructive",
+        title: "Sync failed",
+        description: "Please try again.",
+      });
+    },
   });
 
   const syncMutation = useMutation({
@@ -166,9 +225,19 @@ const SourceDetails = () => {
     },
   });
 
+  const isFastenSource = source?.provider === "fasten";
+  const isPending = isFastenSource ? fastenSyncMutation.isPending : syncMutation.isPending;
+
   const handleAction = () => {
     if (!source) return;
     
+    // For Fasten sources, use the dedicated sync function
+    if (isFastenSource) {
+      fastenSyncMutation.mutate();
+      return;
+    }
+    
+    // For other sources, use the job-based pattern
     switch (source.connection_state) {
       case "disconnected":
         syncMutation.mutate("connect");
@@ -221,6 +290,18 @@ const SourceDetails = () => {
       </Button>
 
       <div className="space-y-6">
+        {/* Fasten Demo Banner */}
+        {isFastenSource && (
+          <Alert>
+            <Cloud className="h-4 w-4" />
+            <AlertTitle>Patient-Authorized External Records (Demo)</AlertTitle>
+            <AlertDescription>
+              This is a demonstration of external health record import via Fasten Health. 
+              Syncing will create sample timeline events to show how external records appear.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Header Card */}
         <Card>
           <CardHeader>
@@ -228,6 +309,8 @@ const SourceDetails = () => {
               <div className="flex-shrink-0 p-3 rounded-lg bg-muted">
                 {source.type === "portal" ? (
                   <ExternalLink className="h-6 w-6" />
+                ) : source.type === "external_api" ? (
+                  <Cloud className="h-6 w-6" />
                 ) : (
                   <Smartphone className="h-6 w-6" />
                 )}
@@ -236,9 +319,13 @@ const SourceDetails = () => {
                 <div className="flex items-center gap-2 flex-wrap">
                   <CardTitle>{source.name}</CardTitle>
                   <Badge variant={stateStyle.variant}>{stateStyle.label}</Badge>
+                  {isFastenSource && <Badge variant="outline">Demo</Badge>}
                 </div>
                 <CardDescription className="mt-1">
-                  {source.provider || source.type} • Added {format(new Date(source.created_at), "MMM d, yyyy")}
+                  {isFastenSource 
+                    ? `Fasten Health Demo • Added ${format(new Date(source.created_at), "MMM d, yyyy")}`
+                    : `${source.provider || source.type} • Added ${format(new Date(source.created_at), "MMM d, yyyy")}`
+                  }
                 </CardDescription>
               </div>
             </div>
@@ -246,15 +333,24 @@ const SourceDetails = () => {
           <CardContent>
             <Button 
               onClick={handleAction} 
-              disabled={syncMutation.isPending}
+              disabled={isPending}
               variant={source.connection_state === "error" ? "destructive" : "default"}
               className="w-full sm:w-auto"
             >
-              {syncMutation.isPending ? (
+              {isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
+                  {isFastenSource ? "Syncing..." : "Processing..."}
                 </>
+              ) : isFastenSource ? (
+                source.connection_state === "connected" ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Sync Demo Data
+                  </>
+                ) : (
+                  "Connect & Sync Demo"
+                )
               ) : source.connection_state === "disconnected" ? (
                 "Connect"
               ) : source.connection_state === "error" ? (
@@ -315,6 +411,10 @@ const SourceDetails = () => {
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>
+              {source.type === "external_api" && source.provider === "fasten" && (
+                "This is a patient-authorized external records demo using Fasten Health. " +
+                "Synced data appears as immutable timeline events with full provenance tracking."
+              )}
               {source.type === "portal" && (
                 "Patient portal connections allow you to import medical records directly from your healthcare provider's system."
               )}
@@ -322,9 +422,11 @@ const SourceDetails = () => {
                 "Device connections sync health data from wearables and health apps on your phone."
               )}
             </p>
-            <p className="text-xs">
-              Note: External integrations are coming in a future release. For now, sources are placeholders for upcoming features.
-            </p>
+            {!isFastenSource && (
+              <p className="text-xs">
+                Note: External integrations are coming in a future release. For now, sources are placeholders for upcoming features.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.documents-download]
 verify_jwt = false
+
+[functions.fasten-demo-sync]
+verify_jwt = false

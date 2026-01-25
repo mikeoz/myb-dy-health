@@ -112,8 +112,45 @@ export function getDateRange(details: unknown): { start: string; end: string } |
     const start = typeof d.date_range_start === "string" ? d.date_range_start : null;
     const end = typeof d.date_range_end === "string" ? d.date_range_end : null;
     if (start && end) {
-      return { start, end };
+    return { start, end };
     }
   }
+  return null;
+}
+
+/**
+ * Get external source from details
+ */
+export function getExternalSource(details: unknown): string | null {
+  return getString(details, "source");
+}
+
+/**
+ * Get resource category from external event details
+ */
+export function getResourceCategory(details: unknown): string | null {
+  return getString(details, "resource_category");
+}
+
+/**
+ * Get provider name from external event details
+ */
+export function getProviderName(details: unknown): string | null {
+  return getString(details, "provider_name");
+}
+
+/**
+ * Check if event is from demo data
+ */
+export function getIsDemo(details: unknown): boolean {
+  if (
+    details !== null &&
+    typeof details === "object" &&
+    "is_demo" in details &&
+    typeof (details as Record<string, unknown>).is_demo === "boolean"
+  ) {
+    return (details as Record<string, unknown>).is_demo as boolean;
+  }
+  return false;
   return null;
 }

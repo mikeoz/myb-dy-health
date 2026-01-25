@@ -15,7 +15,10 @@ export type AuditAction =
   | "review_started"
   | "visit_summary_created"
   | "share_preview_viewed"
-  | "source_sync_requested";
+  | "source_sync_requested"
+  | "external_source_connected"
+  | "external_sync_requested"
+  | "external_events_imported";
 
 /**
  * Create an audit event for a user action.

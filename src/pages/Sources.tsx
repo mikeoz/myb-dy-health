@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Link2, ExternalLink, Smartphone, Loader2, Plus, RefreshCw, AlertTriangle } from "lucide-react";
+import { Link2, ExternalLink, Smartphone, Loader2, Plus, RefreshCw, AlertTriangle, Cloud } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { safeLog } from "@/lib/safe-logger";
+import { createAuditEvent } from "@/lib/audit-helpers";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,12 @@ const CONNECTION_STATE_STYLES: Record<string, { label: string; variant: "default
   disconnected: { label: "Disconnected", variant: "secondary" },
   connected: { label: "Connected", variant: "default" },
   error: { label: "Error", variant: "destructive" },
+};
+
+const SOURCE_TYPE_ICONS: Record<string, typeof Cloud> = {
+  portal: ExternalLink,
+  device: Smartphone,
+  external_api: Cloud,
 };
 
 const Sources = () => {
@@ -90,7 +97,7 @@ const Sources = () => {
         .from("data_sources")
         .insert({
           user_id: userId,
-          type: type as "manual" | "upload" | "portal",
+          type: type as "manual" | "upload" | "portal" | "external_api" | "device",
           name,
           provider,
           status: "pending",
@@ -145,8 +152,11 @@ const Sources = () => {
   };
 
   // Filter out manual/upload sources from the list (those are for internal use)
-  const externalSources = sources?.filter(s => s.type === "portal" || s.type === "device") ?? [];
+  const externalSources = sources?.filter(s => 
+    s.type === "portal" || s.type === "device" || s.type === "external_api"
+  ) ?? [];
   const hasJournal = sources?.some(s => s.type === "manual") ?? false;
+  const hasFastenSource = sources?.some(s => s.provider === "fasten") ?? false;
 
   if (isLoading) {
     return (
@@ -195,6 +205,28 @@ const Sources = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-3 h-auto py-4"
+                onClick={() => handleAddSource("external_api", "Patient-Authorized External Records (Demo)", "fasten")}
+                disabled={addingSource === "external_api" || hasFastenSource}
+              >
+                {addingSource === "external_api" ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Cloud className="h-5 w-5" />
+                )}
+                <div className="text-left">
+                  <div className="font-medium">Fasten Health (Demo)</div>
+                  <div className="text-xs text-muted-foreground">
+                    {hasFastenSource 
+                      ? "Already added" 
+                      : "Patient-authorized external records demo"
+                    }
+                  </div>
+                </div>
+              </Button>
+
               <Button
                 variant="outline"
                 className="w-full justify-start gap-3 h-auto py-4"
@@ -262,20 +294,25 @@ const Sources = () => {
                   <CardContent className="p-4">
                     <div className="flex items-center gap-4">
                       <div className="flex-shrink-0">
-                        {source.type === "portal" ? (
-                          <ExternalLink className="h-6 w-6 text-muted-foreground" />
-                        ) : (
-                          <Smartphone className="h-6 w-6 text-muted-foreground" />
-                        )}
+                        {(() => {
+                          const IconComponent = SOURCE_TYPE_ICONS[source.type] || Cloud;
+                          return <IconComponent className="h-6 w-6 text-muted-foreground" />;
+                        })()}
                       </div>
                       
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-medium truncate">{source.name}</h3>
                           <Badge variant={stateStyle.variant}>{stateStyle.label}</Badge>
+                          {source.provider === "fasten" && (
+                            <Badge variant="outline" className="text-xs">Demo</Badge>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground truncate">
-                          {source.provider || source.type}
+                          {source.provider === "fasten" 
+                            ? "Patient-Authorized External Records" 
+                            : (source.provider || source.type)
+                          }
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           {source.last_sync_at 
@@ -313,6 +350,18 @@ const Sources = () => {
           <Card className="border-dashed">
             <CardContent className="p-4">
               <div className="flex flex-col sm:flex-row gap-3">
+                {!hasFastenSource && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => handleAddSource("external_api", "Patient-Authorized External Records (Demo)", "fasten")}
+                    disabled={!!addingSource}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Fasten Demo
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
