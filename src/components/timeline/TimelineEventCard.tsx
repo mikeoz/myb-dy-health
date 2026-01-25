@@ -1,4 +1,4 @@
-import { Clock, BookOpen, FileText, ExternalLink, Edit, GitBranch } from "lucide-react";
+import { Clock, BookOpen, FileText, ExternalLink, Edit, GitBranch, Cloud } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,10 @@ import {
   getAmendsEventId, 
   getAmendedEventType,
   getOptionalCategory,
-  getDocType 
+  getDocType,
+  getExternalSource,
+  getResourceCategory,
+  getProviderName,
 } from "@/lib/event-details";
 
 interface TimelineEvent {
@@ -43,6 +46,11 @@ const EVENT_TYPE_CONFIG: Record<string, {
     icon: Edit, 
     color: "bg-warning/10 text-warning-foreground" 
   },
+  external_event: { 
+    label: "External Record", 
+    icon: Cloud, 
+    color: "bg-blue-500/10 text-blue-700 dark:text-blue-300" 
+  },
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -60,6 +68,13 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   medication: "Medication",
   insurance: "Insurance",
   other: "Other",
+};
+
+const RESOURCE_CATEGORY_LABELS: Record<string, string> = {
+  encounter: "Encounter",
+  lab_results: "Lab Results",
+  medication: "Medication",
+  document_reference: "Document",
 };
 
 interface TimelineEventCardProps {
@@ -83,6 +98,7 @@ export function TimelineEventCard({ event, onViewDocument, hasAmendments }: Time
   const Icon = config.icon;
   const details = event.details;
   const isAmendment = event.event_type === "event_amended";
+  const isExternalEvent = event.event_type === "external_event";
 
   // Use safe helpers for all details access
   const category = getOptionalCategory(details);
@@ -91,6 +107,11 @@ export function TimelineEventCard({ event, onViewDocument, hasAmendments }: Time
   const amendsEventId = getAmendsEventId(details);
   const amendedEventType = getAmendedEventType(details);
   const amendedCategory = isAmendment ? getOptionalCategory(details) : null;
+  
+  // External event details
+  const externalSource = getExternalSource(details);
+  const resourceCategory = getResourceCategory(details);
+  const providerName = getProviderName(details);
 
   const handleCardClick = () => {
     navigate(`/event/${event.id}`);
@@ -131,6 +152,17 @@ export function TimelineEventCard({ event, onViewDocument, hasAmendments }: Time
               {event.event_type === "document_uploaded" && docType && (
                 <span className="inline-block rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
                   {DOC_TYPE_LABELS[docType] || docType}
+                </span>
+              )}
+              {/* External event badges */}
+              {isExternalEvent && resourceCategory && (
+                <span className="inline-block rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+                  {RESOURCE_CATEGORY_LABELS[resourceCategory] || resourceCategory}
+                </span>
+              )}
+              {isExternalEvent && providerName && (
+                <span className="inline-block rounded-full bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 text-xs text-blue-700 dark:text-blue-300">
+                  {providerName}
                 </span>
               )}
               {/* Amendment badges */}

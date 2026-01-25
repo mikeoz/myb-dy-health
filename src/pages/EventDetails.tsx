@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Clock, BookOpen, FileText, Download, Edit, Loader2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Clock, BookOpen, FileText, Download, Edit, Loader2, AlertTriangle, Cloud } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { safeLog } from "@/lib/safe-logger";
@@ -12,9 +12,13 @@ import {
   getText,
   getDocType,
   getNotes,
-  getOptionalCategory 
+  getOptionalCategory,
+  getExternalSource,
+  getResourceCategory,
+  getProviderName,
 } from "@/lib/event-details";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { AmendmentModal } from "@/components/events/AmendmentModal";
 import { AmendmentsList } from "@/components/events/AmendmentsList";
@@ -71,6 +75,11 @@ const EVENT_TYPE_CONFIG: Record<string, {
     label: "Amendment", 
     icon: Edit, 
     color: "bg-warning/10 text-warning-foreground" 
+  },
+  external_event: { 
+    label: "External Record", 
+    icon: Cloud, 
+    color: "bg-blue-500/10 text-blue-700 dark:text-blue-300" 
   },
 };
 
@@ -298,6 +307,7 @@ const EventDetails = () => {
   const isJournalEntry = event.event_type === "journal_entry";
   const isDocumentEvent = event.event_type === "document_uploaded";
   const isAmendment = event.event_type === "event_amended";
+  const isExternalEvent = event.event_type === "external_event";
   const canAmend = isJournalEntry || isDocumentEvent;
   const hasAmendments = amendments && amendments.length > 0;
 
@@ -308,6 +318,11 @@ const EventDetails = () => {
   const notes = getNotes(details);
   const amendsEventId = getAmendsEventId(details);
   const amendedEventType = getAmendedEventType(details);
+  
+  // External event details
+  const externalSource = getExternalSource(details);
+  const resourceCategory = getResourceCategory(details);
+  const providerName = getProviderName(details);
 
   // Get current view values from latest amendment if available
   const currentViewText = latestAmendment ? getText(latestAmendment.details) : text;
@@ -333,6 +348,18 @@ const EventDetails = () => {
           Back to Timeline
         </Button>
       </div>
+
+      {/* External event banner */}
+      {isExternalEvent && (
+        <Alert className="mb-4">
+          <Cloud className="h-4 w-4" />
+          <AlertTitle>Imported via Fasten</AlertTitle>
+          <AlertDescription>
+            This is a summary, not the original medical record. The content was imported from {providerName || "an external provider"} 
+            and cannot be edited. You can add journal notes about this event.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Amendment banner for original events */}
       {hasAmendments && !isAmendment && (
@@ -378,6 +405,21 @@ const EventDetails = () => {
               {isDocumentEvent && currentViewDocType && (
                 <span className="ml-2 inline-block rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
                   {DOC_TYPE_LABELS[currentViewDocType] || currentViewDocType}
+                </span>
+              )}
+              {/* External event badges */}
+              {isExternalEvent && resourceCategory && (
+                <span className="ml-2 inline-block rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+                  {resourceCategory === "encounter" ? "Encounter" :
+                   resourceCategory === "lab_results" ? "Lab Results" :
+                   resourceCategory === "medication" ? "Medication" :
+                   resourceCategory === "document_reference" ? "Document" :
+                   resourceCategory}
+                </span>
+              )}
+              {isExternalEvent && providerName && (
+                <span className="ml-2 inline-block rounded-full bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 text-xs text-blue-700 dark:text-blue-300">
+                  {providerName}
                 </span>
               )}
             </div>
@@ -435,6 +477,33 @@ const EventDetails = () => {
               <Download className="h-4 w-4 mr-2" />
               Open Document
             </Button>
+          </div>
+        )}
+
+        {/* External event source details */}
+        {isExternalEvent && (
+          <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 mb-4">
+            <h3 className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">External Record Details</h3>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <span className="text-muted-foreground">Source:</span>
+              <span className="text-foreground capitalize">{externalSource || "External"}</span>
+              
+              {providerName && (
+                <>
+                  <span className="text-muted-foreground">Provider:</span>
+                  <span className="text-foreground">{providerName}</span>
+                </>
+              )}
+              
+              {resourceCategory && (
+                <>
+                  <span className="text-muted-foreground">Category:</span>
+                  <span className="text-foreground capitalize">
+                    {resourceCategory.replace(/_/g, " ")}
+                  </span>
+                </>
+              )}
+            </div>
           </div>
         )}
 

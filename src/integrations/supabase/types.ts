@@ -329,7 +329,12 @@ export type Database = {
     }
     Enums: {
       data_source_status: "active" | "inactive" | "pending"
-      data_source_type: "manual" | "upload" | "portal"
+      data_source_type:
+        | "manual"
+        | "upload"
+        | "portal"
+        | "external_api"
+        | "device"
       job_status: "pending" | "running" | "complete" | "failed"
       provenance_method:
         | "manual_entry"
@@ -464,7 +469,13 @@ export const Constants = {
   public: {
     Enums: {
       data_source_status: ["active", "inactive", "pending"],
-      data_source_type: ["manual", "upload", "portal"],
+      data_source_type: [
+        "manual",
+        "upload",
+        "portal",
+        "external_api",
+        "device",
+      ],
       job_status: ["pending", "running", "complete", "failed"],
       provenance_method: [
         "manual_entry",
