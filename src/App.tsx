@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 
 // Pages
-import Index from "./pages/Index";
+import RootGate from "./pages/RootGate";
 import Home from "./pages/Home";
 import Journal from "./pages/Journal";
 import Timeline from "./pages/Timeline";
@@ -34,8 +34,8 @@ const App = () => (
           {/* Auth route without layout */}
           <Route path="/auth" element={<Auth />} />
           
-          {/* Main app routes with layout */}
-          <Route element={<AppLayout><Index /></AppLayout>} path="/" />
+          {/* Root gate - redirects based on auth state */}
+          <Route path="/" element={<RootGate />} />
           <Route path="/home" element={<AppLayout><Home /></AppLayout>} />
           <Route path="/journal" element={<AppLayout><Journal /></AppLayout>} />
           <Route path="/timeline" element={<AppLayout><Timeline /></AppLayout>} />
