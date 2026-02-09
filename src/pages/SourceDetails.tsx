@@ -1,4 +1,5 @@
 import { ArrowLeft, ExternalLink, Smartphone, Loader2, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Cloud } from "lucide-react";
+import { FastenStitchWidget } from "@/components/sources/FastenStitchWidget";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -364,6 +365,21 @@ const SourceDetails = () => {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Fasten Stitch Connection Widget */}
+        {isFastenSource && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Connect Your Health Records</CardTitle>
+              <CardDescription>
+                Use the Fasten Health widget below to connect to your healthcare providers.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FastenStitchWidget />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Activity Card */}
         <Card>
