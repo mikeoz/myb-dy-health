@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.fasten-demo-sync]
 verify_jwt = false
+
+[functions.agent-records-list]
+verify_jwt = false
+
+[functions.agent-records-detail]
+verify_jwt = false
+
+[functions.agent-authorize]
+verify_jwt = false
