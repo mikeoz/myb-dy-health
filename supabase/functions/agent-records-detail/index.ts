@@ -118,12 +118,12 @@ Deno.serve(async (req) => {
       original_filename: string | null;
     } | null = null;
 
-    if (event.event_type === "document_uploaded") {
+    if (event.event_type === "document_uploaded" && event.provenance_id) {
       const { data: artifact } = await admin
         .from("document_artifacts")
         .select("storage_path, content_type, file_size, original_filename")
         .eq("user_id", session.user_id)
-        .or(`provenance_id.eq.${event.provenance_id}`)
+        .eq("provenance_id", event.provenance_id)
         .maybeSingle();
 
       if (artifact) {
