@@ -45,7 +45,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           {/* Sticky mobile-friendly header */}
           <header className="sticky top-0 z-10 h-14 border-b border-border flex items-center px-4 bg-background">
             <SidebarTrigger className="mr-3" />
-            <span className="font-semibold text-foreground md:hidden">MyBödy</span>
+            <span className="font-semibold text-foreground md:hidden">MedGraph</span>
             <div className="flex-1" />
             
             {/* Mobile home button */}

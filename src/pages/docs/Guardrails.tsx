@@ -4,7 +4,7 @@ import { Shield, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
  * Guardrails Documentation Page
  * 
  * Internal documentation for developers and reviewers.
- * Explains the non-negotiable guardrails that govern MyBödy development.
+ * Explains the non-negotiable guardrails that govern MedGraph development.
  * 
  * This page is NOT for end users.
  */
@@ -14,7 +14,7 @@ const Guardrails = () => {
       <div className="page-header">
         <h1 className="page-title flex items-center gap-3">
           <Shield className="h-8 w-8 text-primary" />
-          MyBödy Guardrails
+          MedGraph Guardrails
         </h1>
         <p className="page-description">
           Non-negotiable constraints for healthcare-grade development

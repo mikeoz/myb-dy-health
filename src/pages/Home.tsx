@@ -79,7 +79,7 @@ const Home = () => {
         {/* Welcome Header */}
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold text-foreground">
-            Welcome to MyBödy
+            Welcome to MedGraph
           </h1>
           <p className="text-muted-foreground">
             What would you like to do today?

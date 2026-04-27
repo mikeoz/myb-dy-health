@@ -11,7 +11,7 @@
  */
 
 /**
- * Environment variable names used by MyBödy.
+ * Environment variable names used by MedGraph.
  * These are placeholders - actual values are set server-side only.
  */
 export const ENV_KEYS = {

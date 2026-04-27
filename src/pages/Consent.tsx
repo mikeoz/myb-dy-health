@@ -28,7 +28,7 @@ const Consent = () => {
         <Shield className="empty-state-icon" />
         <h3 className="empty-state-title">Consent not configured</h3>
         <p className="empty-state-description">
-          Before using MyBödy, you'll need to review and provide consent for how your health data is handled.
+          Before using MedGraph, you'll need to review and provide consent for how your health data is handled.
         </p>
       </div>
 
