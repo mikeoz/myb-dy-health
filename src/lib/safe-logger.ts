@@ -74,16 +74,16 @@ const logInternal = (level: LogLevel, message: string, fields: SafeLogFields): v
 
   switch (level) {
     case 'debug':
-      console.debug('[MyBödy]', logEntry);
+      console.debug('[MedGraph]', logEntry);
       break;
     case 'info':
-      console.info('[MyBödy]', logEntry);
+      console.info('[MedGraph]', logEntry);
       break;
     case 'warn':
-      console.warn('[MyBödy]', logEntry);
+      console.warn('[MedGraph]', logEntry);
       break;
     case 'error':
-      console.error('[MyBödy]', logEntry);
+      console.error('[MedGraph]', logEntry);
       break;
   }
 };
