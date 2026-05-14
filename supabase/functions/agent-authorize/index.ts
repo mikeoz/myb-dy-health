@@ -175,10 +175,19 @@ serve(async (req: Request) => {
   // INV-FC.
   let validation;
   try {
-    validation = await validateCardSet(cardSet, policy, {
-      veEndpoint: "https://ve-staging.opn.li/v1/verify",
-      requireVE: true,
-    });
+    const skipVE = Deno.env.get("SKIP_VE_VALIDATION") === "true";
+    if (skipVE) {
+      console.warn("[agent-authorize] SKIP_VE_VALIDATION is true — bypassing VE");
+      validation = await validateCardSet(cardSet, policy, {
+        veEndpoint: "https://ve-staging.opn.li/v1/verify",
+        requireVE: false,
+      });
+    } else {
+      validation = await validateCardSet(cardSet, policy, {
+        veEndpoint: "https://ve-staging.opn.li/v1/verify",
+        requireVE: true,
+      });
+    }
   } catch (err) {
     // Defensive: SDK should not throw on validation paths, but if it does,
     // treat it as a denial. Do not leak internal error text to the agent.
