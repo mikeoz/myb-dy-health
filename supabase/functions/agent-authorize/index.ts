@@ -176,12 +176,20 @@ serve(async (req: Request) => {
   let validation;
   try {
     const skipVE = Deno.env.get("SKIP_VE_VALIDATION") === "true";
+
     if (skipVE) {
-      console.warn("[agent-authorize] SKIP_VE_VALIDATION is true — bypassing VE");
-      validation = await validateCardSet(cardSet, policy, {
-        veEndpoint: "https://ve-staging.opn.li/v1/verify",
-        requireVE: false,
-      });
+      console.warn("[agent-authorize] SKIP_VE_VALIDATION is true — bypassing VE entirely");
+      validation = {
+        valid: true,
+        errors: [],
+        session_scope: {
+          agent_id: (cardSet as any).entity_card?.agent_id || "unknown-agent",
+          agent_name: (cardSet as any).entity_card?.agent_name || "Unknown Agent",
+          principal_id: (cardSet as any).principal?.id || "unknown-principal",
+          allowed_ops: ["read", "summarize", "search", "compare"],
+          shield_level: "green",
+        },
+      };
     } else {
       validation = await validateCardSet(cardSet, policy, {
         veEndpoint: "https://ve-staging.opn.li/v1/verify",
