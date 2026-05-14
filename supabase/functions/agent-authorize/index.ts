@@ -179,13 +179,15 @@ serve(async (req: Request) => {
 
     if (skipVE) {
       console.warn("[agent-authorize] SKIP_VE_VALIDATION is true — bypassing VE entirely");
+      const rawPrincipalId = (cardSet as any).principal?.id || "unknown-principal";
+      const cleanPrincipalId = rawPrincipalId.replace(/^card:entity:user-/, "");
       validation = {
         valid: true,
         errors: [],
         session_scope: {
           agent_id: (cardSet as any).entity_card?.agent_id || "unknown-agent",
           agent_name: (cardSet as any).entity_card?.agent_name || "Unknown Agent",
-          principal_id: (cardSet as any).principal?.id || "unknown-principal",
+          principal_id: cleanPrincipalId,
           allowed_ops: ["read", "summarize", "search", "compare"],
           shield_level: "green",
         },
