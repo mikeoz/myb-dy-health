@@ -142,7 +142,11 @@ Deno.serve(async (req) => {
       entity_id: session.id,
     });
 
-    console.log(`[agent-records-list] ok session=${session.id} count=${records.length}`);
+    // Enforce Boundary CARD: one query per session
+    await admin
+      .from("agent_sessions")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("id", session.id);
 
     return json({
       records,
