@@ -206,6 +206,33 @@ serve(async (req: Request) => {
     });
   }
 
+  // ── Resolve patient_email → MedGraph user_id ──────────────────
+  const patientEmail = csData.patient_email;
+  if (!patientEmail || typeof patientEmail !== "string") {
+    return jsonResponse(403, {
+      errors: ["data_card_invalid: patient_email is required"],
+    });
+  }
+
+  const { data: authUsers, error: authErr } =
+    await supabase.auth.admin.listUsers();
+  let resolvedUserId: string | null = null;
+  if (!authErr && authUsers?.users) {
+    const matchedUser = authUsers.users.find(
+      (u: any) => u.email?.toLowerCase() === patientEmail.toLowerCase(),
+    );
+    if (matchedUser) {
+      resolvedUserId = matchedUser.id;
+    }
+  }
+  if (!resolvedUserId) {
+    return jsonResponse(403, {
+      errors: [
+        "data_card_invalid: patient_email does not match any MedGraph user",
+      ],
+    });
+  }
+
   // ── Step 1: validateCardSet (policy + VE) ─────────────────────
   // TODO: flip to false for production — VE validation is currently bypassed during staging.
   let validation;
@@ -216,19 +243,13 @@ serve(async (req: Request) => {
       console.warn(
         "[agent-authorize] SKIP_VE_VALIDATION is true — bypassing VE entirely",
       );
-      const rawPrincipalId =
-        (cardSet as any).principal?.id || "unknown-principal";
-      const cleanPrincipalId = rawPrincipalId.replace(
-        /^card:entity:user-/,
-        "",
-      );
       validation = {
         valid: true,
         errors: [],
         session_scope: {
           agent_id: csEntity.agent_id || "unknown-agent",
           agent_name: csEntity.agent_name || "Unknown Agent",
-          principal_id: cleanPrincipalId,
+          principal_id: resolvedUserId,
           allowed_ops: permitted,
           shield_level: "green",
         },
@@ -249,6 +270,9 @@ serve(async (req: Request) => {
   if (!validation.valid) {
     return jsonResponse(403, { errors: validation.errors ?? ["denied"] });
   }
+
+  // Ensure principal_id reflects resolved MedGraph user
+  validation.session_scope!.principal_id = resolvedUserId;
 
   // ── Step 2: createSessionToken (scoped, persisted) ────────────
   const ttl =
