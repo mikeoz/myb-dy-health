@@ -301,7 +301,7 @@ serve(async (req: Request) => {
           session_token: record.token,
           agent_id: record.agent_id,
           agent_name: record.agent_name,
-          user_id: record.principal_id,
+          user_id: resolvedUserId,
           allowed_ops: record.allowed_ops,
           expires_at: record.expires_at,
         });
